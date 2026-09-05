@@ -1,0 +1,350 @@
+const { PrismaClient } = require('@prisma/client');
+const cheerio = require('cheerio');
+
+const prisma = new PrismaClient();
+const BASE = 'https://eghuri.com';
+
+async function fetchHTML(url) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const r = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SeedBot/1.0)' },
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}: ${url}`);
+    return await r.text();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-')
+    .substring(0, 200);
+}
+
+const usedSlugs = new Set();
+function uniqueSlug(text) {
+  let base = slugify(text);
+  if (!base) base = 'item';
+  let slug = base;
+  let i = 2;
+  while (usedSlugs.has(slug)) {
+    slug = `${base}-${i++}`;
+  }
+  usedSlugs.add(slug);
+  return slug;
+}
+
+const usedSkus = new Set();
+function generateSku() {
+  let sku;
+  do {
+    sku = String(Math.floor(100000 + Math.random() * 900000));
+  } while (usedSkus.has(sku));
+  usedSkus.add(sku);
+  return sku;
+}
+
+// ——— Step 1: Scrape categories from homepage ———
+async function scrapeCategories() {
+  console.log('Fetching homepage…');
+  const html = await fetchHTML(BASE);
+  const $ = cheerio.load(html);
+
+  const cats = [];
+
+  $('.mobile-menu .first-nav > .parent-category').each((_, el) => {
+    const $el = $(el);
+    const $link = $el.find('> a.menu-category-name');
+    const href = $link.attr('href') || '';
+    const name = $link.clone().children().remove().end().text().trim();
+    const image = $link.find('img.side_cat_img').attr('src') || '';
+    const slug = href.replace(/^https?:\/\/[^\/]+\/category\//, '');
+
+    if (!slug || href.includes('order-track')) return;
+
+    const subs = [];
+    $el.find('.second-nav > .parent-subcategory').each((_, subEl) => {
+      const $a = $(subEl).find('> .menu-subcategory-name');
+      const sh = $a.attr('href') || '';
+      const sn = $a.text().trim();
+      const ss = sh.replace(/^https?:\/\/[^\/]+\/subcategory\//, '');
+      if (sn) subs.push({ name: sn, slug: ss, href: sh });
+    });
+
+    cats.push({
+      name,
+      slug,
+      image: image || null,
+      href: href.startsWith('http') ? href : BASE + href,
+      subs,
+    });
+  });
+
+  console.log(`  → ${cats.length} categories`);
+  return cats;
+}
+
+// ——— Step 2: Product URLs from a category page ———
+async function scrapeCategoryProducts(url) {
+  const products = [];
+  try {
+    const html = await fetchHTML(url);
+    const $ = cheerio.load(html);
+
+    $('.product_item.wist_item').each((_, el) => {
+      const $e = $(el);
+      const $imgLink = $e.find('.pro_img a');
+      const $nameLink = $e.find('.pro_name a');
+
+      const productUrl = $imgLink.attr('href') || $nameLink.attr('href') || '';
+      const name = $nameLink.text().trim();
+      const image = $e.find('.pro_img img').attr('src') || '';
+
+      const $price = $e.find('.pro_price p');
+      let uPrice = null, sPrice = null;
+      const $del = $price.find('del');
+      if ($del.length) {
+        uPrice = parsePrice($del.text());
+        sPrice = parsePrice($price.clone().children('del').remove().end().text());
+      } else {
+        uPrice = parsePrice($price.text());
+      }
+
+      if (productUrl && name) {
+        const full = productUrl.startsWith('http') ? productUrl : BASE + productUrl;
+        const slug = full.replace(/^https?:\/\/[^\/]+\/product\//, '');
+        products.push({ name, slug, url: full, image, unitePrice: uPrice, salePrice: sPrice });
+      }
+    });
+  } catch (e) {
+    console.error(`    ✗ ${e.message}`);
+  }
+  return products;
+}
+
+function parsePrice(text) {
+  if (!text) return null;
+  const n = parseFloat(text.replace(/[^0-9.]/g, ''));
+  return isNaN(n) ? null : n;
+}
+
+// ——— Step 3: Product detail + breadcrumb ———
+async function scrapeProductDetail(url) {
+  try {
+    const html = await fetchHTML(url);
+    const $ = cheerio.load(html);
+
+    const title = $('.product-cart .name').text().trim() ||
+      $('title').text().replace(' - Eghuri', '').trim();
+
+    const $price = $('.details-price');
+    let uPrice = null, sPrice = null;
+    const $del = $price.find('del');
+    if ($del.length) {
+      uPrice = parsePrice($del.text());
+      sPrice = parsePrice($price.clone().children('del').remove().end().text());
+    } else {
+      sPrice = parsePrice($price.text());
+      uPrice = sPrice;
+    }
+
+    const images = [];
+    $('.details_slider .dimage_item img').each((_, el) => {
+      const src = $(el).attr('src');
+      if (src) images.push(src);
+    });
+
+    let breadcrumbCatSlug = null;
+    let breadcrumbSubName = null;
+
+    const $crumbs = $('.breadcrumb ul li a');
+    $crumbs.each((_, el) => {
+      const href = $(el).attr('href') || '';
+      const m = href.match(/\/category\/(.+)$/);
+      if (m) breadcrumbCatSlug = m[1];
+    });
+
+    const $allLis = $('.breadcrumb ul li');
+    $allLis.each((i, li) => {
+      const $a = $(li).find('a');
+      const href = $a.attr('href') || '';
+      const text = $a.text().trim();
+      if (i === 0) return;
+      if (i === 1) return;
+      if (href.includes('/category/')) return;
+      if (text && (href === '#' || href === '')) {
+        breadcrumbSubName = text;
+      }
+    });
+
+    return {
+      title,
+      unitePrice: uPrice || 0,
+      salePrice: sPrice,
+      images,
+      breadcrumbCatSlug,
+      breadcrumbSubName,
+    };
+  } catch (e) {
+    console.error(`    ✗ ${e.message}`);
+    return null;
+  }
+}
+
+// ——— Main ———
+async function main() {
+  const startTime = Date.now();
+  console.log('=== Catalog Seed ===\n');
+
+  // 1. Categories (scraped from eghuri.com)
+  const cats = await scrapeCategories();
+
+  console.log('\nSeeding categories…');
+  const catMap = {};
+  for (const c of cats) {
+    const r = await prisma.category.upsert({
+      where: { slug: c.slug },
+      update: { name: c.name, image: c.image },
+      create: { name: c.name, slug: c.slug, image: c.image },
+    });
+    catMap[c.slug] = r.id;
+    console.log(`  ✓ ${c.name}`);
+
+    for (const s of c.subs) {
+      const sr = await prisma.category.upsert({
+        where: { slug: s.slug },
+        update: { name: s.name, parentId: r.id },
+        create: { name: s.name, slug: s.slug, parentId: r.id },
+      });
+      catMap[s.slug] = sr.id;
+      console.log(`    ✓ ${s.name}`);
+    }
+  }
+
+  // Build name → slug lookup for breadcrumb matching
+  const nameToSlug = {};
+  for (const c of cats) {
+    nameToSlug[c.name.toLowerCase()] = c.slug;
+    for (const s of c.subs) {
+      nameToSlug[s.name.toLowerCase()] = s.slug;
+    }
+  }
+
+  // 2. Collect all product URLs from every category page
+  console.log('\nScraping products…');
+  const all = [];
+  const seen = new Set();
+
+  for (const c of cats) {
+    const pp = await scrapeCategoryProducts(c.href);
+    console.log(`  ${c.name}: ${pp.length} products`);
+    for (const p of pp) {
+      if (!seen.has(p.url)) { seen.add(p.url); all.push(p); }
+    }
+    for (const s of c.subs) {
+      const url = s.href.startsWith('http') ? s.href : BASE + s.href;
+      const sp = await scrapeCategoryProducts(url);
+      console.log(`    ${s.name}: ${sp.length} products`);
+      for (const p of sp) {
+        if (!seen.has(p.url)) { seen.add(p.url); all.push(p); }
+      }
+    }
+  }
+
+  console.log(`\nTotal unique products: ${all.length}`);
+
+  // 3. Fetch details + seed products
+  console.log('\nFetching details & seeding…');
+  let done = 0;
+  const CONC = 5;
+
+  for (let i = 0; i < all.length; i += CONC) {
+    const batch = all.slice(i, i + CONC);
+    const results = await Promise.all(
+      batch.map(async (p) => {
+        const d = await scrapeProductDetail(p.url);
+        return { ...p, detail: d };
+      }),
+    );
+
+    for (const p of results) {
+      if (!p.detail) continue;
+      const d = p.detail;
+
+      let targetSlug = null;
+
+      if (d.breadcrumbSubName) {
+        const subSlug = nameToSlug[d.breadcrumbSubName.toLowerCase()];
+        if (subSlug && catMap[subSlug]) {
+          targetSlug = subSlug;
+        }
+      }
+
+      if (!targetSlug && d.breadcrumbCatSlug && catMap[d.breadcrumbCatSlug]) {
+        targetSlug = d.breadcrumbCatSlug;
+      }
+
+      if (!targetSlug) {
+        for (const [slug] of Object.entries(catMap)) {
+          if (p.slug.startsWith(slug.replace(/-/g, ''))) {
+            targetSlug = slug;
+            break;
+          }
+        }
+      }
+
+      try {
+        const catId = targetSlug ? catMap[targetSlug] : undefined;
+        await prisma.product.upsert({
+          where: { slug: p.slug },
+          update: {},
+          create: {
+            title: d.title || p.name,
+            slug: p.slug,
+            sku: generateSku(),
+            description: d.title || p.name,
+            unite_price: d.unitePrice,
+            sale_price: d.salePrice || null,
+            quantity: 10,
+            status: 'publish',
+            categories: catId ? { connect: { id: catId } } : undefined,
+            images: {
+              create:
+                d.images.length > 0
+                  ? d.images.map((img, idx) => ({
+                      image_path: img,
+                      altText: idx === 0 ? d.title : `${d.title} — Image ${idx + 1}`,
+                    }))
+                  : [{ image_path: p.image, altText: d.title }],
+            },
+          },
+        });
+        done++;
+        if (done % 10 === 0 || done === all.length)
+          console.log(`  ${done}/${all.length}`);
+      } catch (e) {
+        console.error(`  ✗ ${p.name}: ${e.message}`);
+      }
+    }
+  }
+
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`\n✓ ${done} products seeded`);
+  console.log(`=== Catalog seed complete in ${elapsed}s ===`);
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());

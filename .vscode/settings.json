@@ -1,0 +1,10 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "npx prisma": true,
+        "mv": true,
+        "git restore": true,
+        "mkdir": true,
+        "cp": true,
+        "true": true
+    }
+}

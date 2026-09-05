@@ -1,0 +1,78 @@
+module.exports = {
+  darkMode: 'class',
+  content: [
+    './app/**/*.{js,jsx}',
+    './components/**/*.{js,jsx}',
+    './src/**/*.{js,jsx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        brand: {
+          primary: '#ae2f34',
+          secondary: '#684fa6',
+        },
+        'editorial-ink': '#1A0A3E',
+        'warm-sand': '#F9F7F2',
+        'soft-blush': '#FFF0F0',
+        surface: '#fdf7ff',
+        'on-surface': '#201144',
+        'on-background': '#201144',
+        'primary-container': '#ff6b6b',
+        'secondary-container': '#ba9ffd',
+        'on-primary': '#ffffff',
+        'on-secondary': '#ffffff',
+        'on-primary-container': '#3b0000',
+        'on-secondary-container': '#22005d',
+        'badge-sale': '#dc2626',
+        'badge-new': '#2563eb',
+        'badge-out-of-stock': '#6b7280',
+        success: '#16a34a',
+        warning: '#ca8a04',
+        destructive: '#dc2626',
+        muted: '#6b7280',
+        border: '#e5e7eb',
+        ring: '#ae2f34',
+        dark: {
+          bg: '#0f172a',
+          card: '#1e293b',
+          border: '#334155',
+          text: '#e2e8f0',
+          muted: '#94a3b8',
+        },
+      },
+      fontFamily: {
+        display: ['"Playfair Display"', 'Georgia', 'serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      fontSize: {
+        'display-xl': ['3.5rem', { lineHeight: '4rem', letterSpacing: '-0.02em', fontWeight: '700' }],
+        'headline-lg': ['2rem', { lineHeight: '2.5rem', letterSpacing: '-0.01em', fontWeight: '700' }],
+        'headline-md': ['1.5rem', { lineHeight: '2rem', fontWeight: '600' }],
+        'body-lg': ['1.125rem', { lineHeight: '1.75rem' }],
+        'body-md': ['1rem', { lineHeight: '1.5rem' }],
+        'body-sm': ['0.875rem', { lineHeight: '1.25rem' }],
+        'label-caps': ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.1em', fontWeight: '600' }],
+      },
+      spacing: {
+        'page-margin-mobile': '1.25rem',
+        'page-margin-desktop': '2.5rem',
+        gutter: '0.5rem',
+        'section-gap': '4rem',
+        'stack-sm': '0.5rem',
+        'stack-md': '1rem',
+        'stack-lg': '2rem',
+      },
+      borderRadius: {
+        '4xl': '1rem',
+      },
+      boxShadow: {
+        'ambient': '0 1px 3px rgba(0,0,0,0.08)',
+        'ambient-lg': '0 4px 12px rgba(0,0,0,0.1)',
+      },
+    },
+  },
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
+};

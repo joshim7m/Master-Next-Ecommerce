@@ -1,0 +1,276 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  image       String?
+  description String?
+  parentId    String?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]  @relation("ProductCategories")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([parentId])
+  @@index([name])
+  @@index([slug])
+}
+
+model Product {
+  id                String          @id @default(uuid())
+  title             String
+  slug              String          @unique
+  sku               String          @unique
+  description       String?
+  metaDescription   String?
+  tags              String?
+  unite_price       Decimal
+  sale_price        Decimal?
+  quantity          Int?
+  status            String
+  featured          Boolean         @default(false)
+  categories        Category[]      @relation("ProductCategories")
+  images            ProductImage[]
+  variants          ProductVariant[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([status, createdAt])
+  @@index([title])
+  @@index([slug])
+}
+
+model ProductImage {
+  id         String           @id @default(uuid())
+  product    Product          @relation(fields: [productId], references: [id])
+  productId  String
+  image_path String
+  altText    String?
+  variants   ProductVariant[]
+
+  @@index([productId])
+}
+
+model ProductVariant {
+  id                String         @id @default(uuid())
+  product           Product        @relation(fields: [productId], references: [id])
+  productId         String
+  sku               String?
+  size              String?
+  color             String?
+  unite_price       Decimal?
+  sale_price        Decimal?
+  image             ProductImage?  @relation(fields: [imageId], references: [id])
+  imageId           String?
+  quantity          Int
+  isDefault         Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([productId])
+  @@index([imageId])
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          String
+  details       UserDetails?
+  orders        Order[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model UserDetails {
+  id              String   @id @default(uuid())
+  user            User     @relation(fields: [userId], references: [id])
+  userId          String   @unique
+  shippingAddress String
+  phoneNumber     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Order {
+  id            String       @id @default(uuid())
+  orderNo       String       @unique
+  user          User?        @relation(fields: [userId], references: [id])
+  userId        String?
+  total         Decimal
+  orderStatus   String
+  details       OrderDetails?
+  items         OrderItem[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([userId])
+  @@index([orderNo])
+  @@index([orderStatus])
+}
+
+model OrderDetails {
+  id              String   @id @default(uuid())
+  order           Order    @relation(fields: [orderId], references: [id])
+  orderId         String   @unique
+  customerName    String?
+  shippingAddress String
+  phoneNumber     String?
+  shippingArea    String
+  deliveryCharge  Decimal
+  ipAddress       String?
+  deviceHash      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model BlockedDevice {
+  id          String   @id @default(cuid())
+  deviceHash  String   @unique
+  reason      String?
+  orderNo     String?
+  blockedAt   DateTime @default(now())
+
+  @@index([deviceHash])
+}
+
+model SiteSetting {
+  id            String   @id @default("singleton")
+  siteName      String?
+  logo          String?
+  favicon       String?
+  mobile        String?
+  email         String?
+  address       String?
+  copyrightText String?
+  announcementText String?
+  aboutCompany  String?
+  aboutCompanyBn String? @map("aboutCompany_bn")
+  telegramBotToken String?
+  telegramChatId   String?
+  gtmId            String?
+  whatsappNumber   String?
+  siteUrl          String?
+  jwtSecret        String?
+  metaTitle        String?
+  metaDescription  String?
+  metaKeywords     String?
+  ogImage          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model OrderItem {
+  id            String   @id @default(uuid())
+  order         Order    @relation(fields: [orderId], references: [id])
+  orderId       String
+  productTitle  String
+  sku           String?
+  itemImagePath String
+  purchasePrice Decimal
+  quantity      Int
+  variantName   String?
+  variantId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productTitle])
+}
+
+model SocialLink {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  icon      String?
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+  @@index([isActive])
+}
+
+model HeroSlider {
+  id           String   @id @default(cuid())
+  title        String?
+  subtitle     String?
+  buttonText   String?
+  buttonLink   String?
+  image        String?
+  order        Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([order])
+  @@index([isActive])
+}
+
+model BlogCategory {
+  id         String      @id @default(uuid())
+  title      String
+  slug       String      @unique
+  image      String?
+  authorName String?
+  status     String      @default("draft")
+  posts      BlogPost[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([status])
+  @@index([title])
+  @@index([slug])
+}
+
+model BlogPost {
+  id              String                   @id @default(uuid())
+  title           String
+  slug            String                   @unique
+  content         String
+  bannerImage     String?
+  category        BlogCategory             @relation(fields: [categoryId], references: [id])
+  categoryId      String
+  tags            String?
+  metaDescription String?
+  status          String                   @default("draft")
+  advertisements  BlogPostAdvertisement[]
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  @@index([categoryId, createdAt])
+  @@index([status, createdAt])
+  @@index([title])
+}
+
+model Advertisement {
+  id        String                   @id @default(uuid())
+  title     String
+  image     String?
+  text      String?
+  price     Decimal?
+  productLink String?
+  blogPosts BlogPostAdvertisement[]
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+}
+
+model BlogPostAdvertisement {
+  blogPostId      String
+  blogPost        BlogPost       @relation(fields: [blogPostId], references: [id])
+  advertisementId String
+  advertisement   Advertisement  @relation(fields: [advertisementId], references: [id])
+
+  @@id([blogPostId, advertisementId])
+}
