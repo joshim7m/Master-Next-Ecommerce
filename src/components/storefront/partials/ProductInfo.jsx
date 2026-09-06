@@ -14,6 +14,11 @@ const COLOR_MAP = {
   lime: '#84cc16', amber: '#f59e0b', rose: '#f43f5e', violet: '#8b5cf6',
 };
 
+function variantNameOf(variant) {
+  if (!variant) return 'Default';
+  return (variant.options || []).filter(Boolean).join(' / ') || 'Default';
+}
+
 function hexToRgb(hex) {
   const v = parseInt(hex.slice(1), 16);
   return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 };
@@ -98,7 +103,10 @@ function OptionGroup({ label, options, selected, onChange }) {
 
   return (
     <div>
-      <label className="font-label-caps text-[0.65rem] text-muted dark:text-dark-muted">{label}</label>
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-semibold uppercase tracking-wider text-on-surface/80 dark:text-dark-text/80">{label}</label>
+        {selected && <span className="text-xs font-medium text-primary dark:text-primary">{selected}</span>}
+      </div>
       <div className="mt-1.5 flex flex-wrap gap-1.5">
         {options.map((opt) => {
           if (isColor) {
@@ -162,9 +170,7 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
   }, []);
 
   useEffect(() => {
-    const variantName = selectedVariant
-      ? `${selectedVariant.size || ''}${selectedVariant.color ? ` / ${selectedVariant.color}` : ''}`.trim()
-      : 'Default';
+    const variantName = variantNameOf(selectedVariant);
     pushDataLayer('view_item', {
       ecommerce: {
         items: [{
@@ -188,13 +194,13 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
 
   const activePrice = useMemo(() => {
     if (selectedVariant?.sale_price) return Number(selectedVariant.sale_price);
-    if (selectedVariant?.price) return Number(selectedVariant.price);
+    if (selectedVariant?.unite_price) return Number(selectedVariant.unite_price);
     if (product.sale_price) return Number(product.sale_price);
     return Number(product.unite_price);
   }, [product, selectedVariant]);
 
   const activeOriginalPrice = useMemo(() => {
-    if (selectedVariant?.price && selectedVariant.sale_price) return Number(selectedVariant.price);
+    if (selectedVariant?.unite_price && selectedVariant.sale_price) return Number(selectedVariant.unite_price);
     if (product.unite_price && product.sale_price) return Number(product.unite_price);
     return null;
   }, [product, selectedVariant]);
@@ -211,38 +217,39 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
 
   const variants = product.variants || [];
 
-  const uniqueSizes = useMemo(() => {
-    const set = new Set();
-    variants.forEach((v) => { if (v.size) set.add(v.size); });
-    return [...set];
-  }, [variants]);
+  const optionGroups = useMemo(() => {
+    const names = (product.options || [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map((o) => o.name);
 
-  const uniqueColors = useMemo(() => {
-    const set = new Set();
-    variants.forEach((v) => { if (v.color) set.add(v.color); });
-    return [...set];
-  }, [variants]);
+    let arity = names.length;
+    if (arity === 0) {
+      arity = variants.reduce((m, v) => Math.max(m, (v.options || []).length), 0);
+      names.length = arity;
+      names.fill('');
+    }
 
-  const selectedSize = selectedVariant?.size || null;
-  const selectedColor = selectedVariant?.color || null;
+    return names
+      .map((name, position) => ({
+        position,
+        name: name || `Option ${position + 1}`,
+        values: [...new Set(variants.map((v) => v.options?.[position]).filter(Boolean))],
+      }))
+      .filter((g) => g.values.length > 0);
+  }, [product, variants]);
 
-  const sizeOptions = uniqueSizes.length > 0;
-  const colorOptions = uniqueColors.length > 0;
+  const selectedValues = (selectedVariant?.options || []).map((v) => v || null);
 
-  const handleSizeChange = (size) => {
+  const handleOptionChange = (position, value) => {
     const idx = variants.findIndex((v) => {
-      if (colorOptions && selectedColor) return v.size === size && v.color === selectedColor;
-      if (colorOptions) return v.size === size;
-      return v.size === size;
-    });
-    if (idx !== -1) onVariantChange(idx);
-  };
-
-  const handleColorChange = (color) => {
-    const idx = variants.findIndex((v) => {
-      if (sizeOptions && selectedSize) return v.color === color && v.size === selectedSize;
-      if (sizeOptions) return v.color === color;
-      return v.color === color;
+      const vals = v.options || [];
+      if (vals[position] !== value) return false;
+      for (let i = 0; i < vals.length; i++) {
+        if (i === position) continue;
+        if (selectedValues[i] && vals[i] !== selectedValues[i]) return false;
+      }
+      return true;
     });
     if (idx !== -1) onVariantChange(idx);
   };
@@ -252,9 +259,7 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
   };
 
   const handleAddToCart = () => {
-    const variantName = selectedVariant
-      ? `${selectedVariant.size || ''}${selectedVariant.color ? ` / ${selectedVariant.color}` : ''}`.trim()
-      : 'Default';
+    const variantName = variantNameOf(selectedVariant);
 
     addToCart({
       productId: product.id,
@@ -286,9 +291,7 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
   };
 
   const handleBuyNow = () => {
-    const variantName = selectedVariant
-      ? `${selectedVariant.size || ''}${selectedVariant.color ? ` / ${selectedVariant.color}` : ''}`.trim()
-      : 'Default';
+    const variantName = variantNameOf(selectedVariant);
 
     addToCart({
       productId: product.id,
@@ -362,34 +365,19 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
         </div>
 
         {/* ── Variant selector ── */}
-        {variants.length > 0 && (
+        {variants.length > 0 && optionGroups.length > 0 && (
           <>
             {divider}
             <div className="space-y-3">
-              {sizeOptions && (
+              {optionGroups.map((group) => (
                 <OptionGroup
-                  label="Size"
-                  options={uniqueSizes}
-                  selected={selectedSize}
-                  onChange={handleSizeChange}
+                  key={group.position}
+                  label={group.name}
+                  options={group.values}
+                  selected={selectedValues[group.position] || null}
+                  onChange={(value) => handleOptionChange(group.position, value)}
                 />
-              )}
-              {colorOptions && (
-                <OptionGroup
-                  label="Color"
-                  options={uniqueColors}
-                  selected={selectedColor}
-                  onChange={handleColorChange}
-                />
-              )}
-              {selectedVariant && (
-                <p className="text-xs text-muted dark:text-dark-muted">
-                  Selected:{' '}
-                  <span className="font-medium text-on-surface/70 dark:text-dark-text/70">
-                    {[selectedVariant.size, selectedVariant.color].filter(Boolean).join(' / ') || `Variant ${variantIndex + 1}`}
-                  </span>
-                </p>
-              )}
+              ))}
             </div>
           </>
         )}
@@ -454,13 +442,11 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
               <span className="material-symbols-outlined text-[20px]">bolt</span>
               Buy Now
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                const variantLabel = selectedVariant
-                  ? [selectedVariant.size, selectedVariant.color].filter(Boolean).join(' / ')
-                  : '';
-                const lines = [
+              <button
+                type="button"
+                onClick={() => {
+                  const variantLabel = selectedVariant ? variantNameOf(selectedVariant) : '';
+                  const lines = [
                   `I want to order: ${product.title}`,
                   variantLabel ? `Variant: ${variantLabel}` : '',
                   `Price: ৳${activePrice.toLocaleString()}`,

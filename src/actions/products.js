@@ -7,9 +7,16 @@ function serialize(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+const productInclude = {
+  images: true,
+  variants: true,
+  categories: true,
+  options: { orderBy: { position: 'asc' } },
+};
+
 export async function getProducts() {
   const products = await prisma.product.findMany({
-    include: { images: true, variants: true, categories: true },
+    include: productInclude,
     orderBy: { createdAt: 'desc' },
   });
   return serialize(products);
@@ -42,7 +49,7 @@ export async function createProduct(data) {
       categories: categoryIds?.length ? { connect: categoryIds.map((id) => ({ id })) } : undefined,
       images: imagePaths?.length ? { create: imagePaths.map((p) => ({ image_path: p, altText: title })) } : undefined,
     },
-    include: { images: true, variants: true, categories: true },
+    include: productInclude,
   });
 
   revalidatePath('/admin/products');
@@ -50,11 +57,21 @@ export async function createProduct(data) {
 }
 
 export async function updateProduct(id, data) {
-  const { title, slug: rawSlug, description, metaDescription, tags, unite_price, sale_price, sku, quantity, status, featured, categoryIds, imagePaths, removeImageIds, variants, removedVariantIds } = data;
+  const { title, slug: rawSlug, description, metaDescription, tags, unite_price, sale_price, sku, quantity, status, featured, categoryIds, imagePaths, removeImageIds, variants, removedVariantIds, options } = data;
   const slug = rawSlug?.trim();
 
   if (removeImageIds?.length) {
     await prisma.productImage.deleteMany({ where: { id: { in: removeImageIds }, productId: id } });
+  }
+
+  // Skip paths this product already has (e.g. a repeated save re-submitting
+  // the same uploads) and dedupe within the batch itself.
+  let freshImagePaths = [];
+  if (imagePaths?.length) {
+    const existingPaths = new Set(
+      (await prisma.productImage.findMany({ where: { productId: id }, select: { image_path: true } })).map((r) => r.image_path)
+    );
+    freshImagePaths = [...new Set(imagePaths)].filter((p) => p && !existingPaths.has(p));
   }
 
   if (removedVariantIds?.length) {
@@ -68,8 +85,7 @@ export async function updateProduct(id, data) {
         data: {
           product: { connect: { id } },
           sku: v.sku || null,
-          size: v.size || null,
-          color: v.color || null,
+          options: Array.isArray(v.options) ? v.options.filter(Boolean) : [],
           unite_price: v.unite_price ? parseFloat(v.unite_price) : null,
           sale_price: v.sale_price ? parseFloat(v.sale_price) : null,
           quantity: v.quantity ? parseInt(v.quantity) : 0,
@@ -85,8 +101,7 @@ export async function updateProduct(id, data) {
         where: { id: v.id },
         data: {
           sku: v.sku || null,
-          size: v.size || null,
-          color: v.color || null,
+          options: Array.isArray(v.options) ? v.options.filter(Boolean) : [],
           unite_price: v.unite_price ? parseFloat(v.unite_price) : null,
           sale_price: v.sale_price ? parseFloat(v.sale_price) : null,
           quantity: v.quantity ? parseInt(v.quantity) : 0,
@@ -110,10 +125,24 @@ export async function updateProduct(id, data) {
       status: status || 'draft',
       featured: Boolean(featured),
       categories: categoryIds?.length ? { set: categoryIds.map((id) => ({ id })) } : { set: [] },
-      images: imagePaths?.length ? { create: imagePaths.map((p) => ({ image_path: p, altText: title })) } : undefined,
+      images: freshImagePaths.length ? { create: freshImagePaths.map((p) => ({ image_path: p, altText: title })) } : undefined,
     },
-    include: { images: true, variants: true, categories: true },
+    include: productInclude,
   });
+
+  if (options) {
+    const named = options
+      .map((o) => (typeof o === 'string' ? o : o?.name))
+      .map((name) => (name || '').trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    await prisma.productOption.deleteMany({ where: { productId: id } });
+    if (named.length) {
+      await prisma.productOption.createMany({
+        data: named.map((name, position) => ({ productId: id, name, position })),
+      });
+    }
+  }
 
   revalidatePath('/admin/products');
   return serialize(product);
@@ -122,7 +151,7 @@ export async function updateProduct(id, data) {
 export async function getProduct(id) {
   const product = await prisma.product.findUnique({
     where: { id },
-    include: { images: true, variants: true, categories: true },
+    include: productInclude,
   });
   return serialize(product);
 }
@@ -130,6 +159,7 @@ export async function getProduct(id) {
 export async function deleteProduct(id) {
   await prisma.productImage.deleteMany({ where: { productId: id } });
   await prisma.productVariant.deleteMany({ where: { productId: id } });
+  await prisma.productOption.deleteMany({ where: { productId: id } });
   await prisma.product.delete({ where: { id } });
   revalidatePath('/admin/products');
 }

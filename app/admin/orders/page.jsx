@@ -4,13 +4,14 @@ import { useEffect, useState, useMemo, Fragment } from 'react';
 import Link from 'next/link';
 import { getOrders, updateOrderStatus } from '../../../src/actions/orders';
 
-const orderStatuses = ['pending', 'processing', 'completed', 'cancelled'];
+const orderStatuses = ['pending', 'processing', 'completed', 'cancelled', 'return'];
 
 const orderStatusColors = {
   pending: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   processing: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   cancelled: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  return: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
 };
 
 const orderStatusDotColors = {
@@ -18,6 +19,7 @@ const orderStatusDotColors = {
   processing: 'bg-blue-500',
   completed: 'bg-emerald-500',
   cancelled: 'bg-red-500',
+  return: 'bg-purple-500',
 };
 
 function ItemsSection({ items }) {
@@ -180,16 +182,96 @@ function ExpandedDetails({ order, onStatusUpdate }) {
   );
 }
 
+function CustomerStatsModal({ stats, onClose }) {
+  if (!stats) return null;
+
+  const segs = [
+    { label: 'Completed', value: stats.completed, dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500' },
+    { label: 'Returned', value: stats.returned, dot: 'bg-purple-500', text: 'text-purple-600 dark:text-purple-400', bar: 'bg-purple-500' },
+    { label: 'Others', value: stats.others, dot: 'bg-slate-400', text: 'text-slate-400 dark:text-slate-500', bar: 'bg-slate-300 dark:bg-slate-600' },
+  ];
+  const pct = stats.total > 0 ? (v) => Math.max(0, (v / stats.total) * 100) : () => 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-t-2xl bg-white shadow-2xl animate-fade-in sm:rounded-2xl dark:bg-slate-800"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Customer Order Stats</h3>
+              <p className="truncate text-xs text-slate-500 dark:text-slate-400">{stats.name} {stats.mobile ? `· ${stats.mobile}` : ''}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-300"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-5 p-5">
+          <div className="text-center">
+            <p className="text-4xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
+            <p className="mt-0.5 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Total Orders Placed</p>
+          </div>
+
+          <div>
+            <div className="flex h-10 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+              {segs.map((s) => (
+                <div key={s.label} className={`${s.bar} transition-all duration-500`} style={{ width: `${pct(s.value)}%` }} />
+              ))}
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {segs.map((s) => (
+                <div key={s.label} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-700/40">
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">{s.label}</p>
+                    <p className={`text-sm font-bold ${s.text}`}>{s.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterOrderStatus, setFilterOrderStatus] = useState('all');
   const [expanded, setExpanded] = useState(null);
+  const [statsOrder, setStatsOrder] = useState(null);
 
   useEffect(() => {
     getOrders().then((data) => { setOrders(data); setLoading(false); });
   }, []);
+
+  useEffect(() => {
+    if (!statsOrder) return;
+    const handler = (e) => { if (e.key === 'Escape') setStatsOrder(null); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [statsOrder]);
 
   const filtered = useMemo(() => {
     let list = orders;
@@ -209,6 +291,23 @@ export default function AdminOrdersPage() {
       await updateOrderStatus(id, { [field]: value });
       getOrders().then(setOrders);
     } catch {}
+  };
+
+  const getCustomerStats = (order) => {
+    const mobile = order.details?.phoneNumber;
+    if (!mobile) return null;
+    const customerOrders = orders.filter((o) => o.details?.phoneNumber === mobile);
+    const total = customerOrders.length;
+    const completed = customerOrders.filter((o) => o.orderStatus === 'completed').length;
+    const returned = customerOrders.filter((o) => o.orderStatus === 'return').length;
+    return {
+      name: order.details?.customerName || order.user?.name || '—',
+      mobile,
+      total,
+      completed,
+      returned,
+      others: total - completed - returned,
+    };
   };
 
   if (loading) return <div className="p-8 text-slate-500 dark:text-slate-400">Loading...</div>;
@@ -263,6 +362,18 @@ export default function AdminOrdersPage() {
                   {new Date(order.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
                 </p>
               </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setStatsOrder(order); }}
+                className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 dark:text-slate-500 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+                title="Customer order stats"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="4" y1="20" x2="4" y2="10" />
+                  <line x1="10" y1="20" x2="10" y2="4" />
+                  <line x1="16" y1="20" x2="16" y2="12" />
+                  <line x1="20" y1="20" x2="20" y2="16" />
+                </svg>
+              </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setExpanded(expanded === order.id ? null : order.id); }}
                 className={`shrink-0 rounded-lg p-2 transition ${
@@ -325,23 +436,37 @@ export default function AdminOrdersPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{order.details?.ipAddress || '—'}</td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setExpanded(expanded === order.id ? null : order.id)}
-                      className={`rounded-lg p-2 transition ${
-                        expanded === order.id
-                          ? 'bg-[#2f0f6b]/10 text-[#2f0f6b] dark:bg-[#a78bfa]/15 dark:text-[#a78bfa]'
-                          : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-300'
-                      }`}
-                      title={expanded === order.id ? 'Collapse' : 'Expand details'}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        {expanded === order.id ? (
-                          <polyline points="18 15 12 9 6 15" />
-                        ) : (
-                          <polyline points="6 9 12 15 18 9" />
-                        )}
-                      </svg>
-                    </button>
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setStatsOrder(order); }}
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 dark:text-slate-500 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+                        title="Customer order stats"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="4" y1="20" x2="4" y2="10" />
+                          <line x1="10" y1="20" x2="10" y2="4" />
+                          <line x1="16" y1="20" x2="16" y2="12" />
+                          <line x1="20" y1="20" x2="20" y2="16" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setExpanded(expanded === order.id ? null : order.id)}
+                        className={`rounded-lg p-2 transition ${
+                          expanded === order.id
+                            ? 'bg-[#2f0f6b]/10 text-[#2f0f6b] dark:bg-[#a78bfa]/15 dark:text-[#a78bfa]'
+                            : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-300'
+                        }`}
+                        title={expanded === order.id ? 'Collapse' : 'Expand details'}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          {expanded === order.id ? (
+                            <polyline points="18 15 12 9 6 15" />
+                          ) : (
+                            <polyline points="6 9 12 15 18 9" />
+                          )}
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 {expanded === order.id && (
@@ -359,6 +484,10 @@ export default function AdminOrdersPage() {
           </tbody>
         </table>
       </div>
+
+      {statsOrder && (
+        <CustomerStatsModal stats={getCustomerStats(statsOrder)} onClose={() => setStatsOrder(null)} />
+      )}
     </section>
   );
 }

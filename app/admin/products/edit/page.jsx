@@ -29,7 +29,7 @@ function EditProductForm() {
   const [removeImageIds, setRemoveImageIds] = useState([]);
   const [hasVariants, setHasVariants] = useState(false);
   const [variants, setVariants] = useState([]);
-  const [optionLabels, setOptionLabels] = useState([]);
+  const [options, setOptions] = useState([]); // [{ name, values }] — values comma-separated
   const [removedVariantIds, setRemovedVariantIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -68,20 +68,35 @@ function EditProductForm() {
       const loaded = (product.variants || []).map((v) => ({
         _key: `existing_${++variantKeyCounter}`,
         id: v.id,
-        optionValues: [v.size || '', v.color || ''].filter(Boolean),
+        optionValues: (v.options || []).map((x) => x || ''),
         sku: v.sku || '',
-        price: v.price?.toString() || '',
+        price: v.unite_price?.toString() || '',
         sale_price: v.sale_price?.toString() || '',
         quantity: v.quantity?.toString() || '',
         imageId: v.imageId || '',
         isDefault: v.isDefault,
-        _delete: false,
       }));
 
-      const optionLabels = loaded.some((v) => v.optionValues.length > 0)
-        ? ['Size', 'Color'].slice(0, loaded[0]?.optionValues?.length || 1)
-        : [];
-      setOptionLabels(optionLabels);
+      const valuesByPos = loaded.reduce((acc, v) => {
+        (v.optionValues || []).forEach((val, i) => {
+          if (!val) return;
+          (acc[i] ??= new Set()).add(val);
+        });
+        return acc;
+      }, {});
+
+      let optionRows = (product.options || []).map((o) => ({
+        name: o.name,
+        values: [...(valuesByPos[o.position] || [])].join(', '),
+      }));
+      if (optionRows.length === 0 && loaded.length > 0) {
+        const len = loaded.reduce((m, v) => Math.max(m, (v.optionValues || []).filter(Boolean).length), 0) || 1;
+        optionRows = Array.from({ length: len }, (_, i) => ({
+          name: ['Size', 'Color'][i] || `Option ${i + 1}`,
+          values: [...(valuesByPos[i] || [])].join(', '),
+        }));
+      }
+      setOptions(optionRows);
 
       setVariants(loaded);
       setHasVariants(loaded.length > 0);
@@ -154,36 +169,50 @@ function EditProductForm() {
   };
 
   const handleGenerate = (parsed, combinations) => {
-    const labels = parsed.map((o) => o.name);
-    const generated = combinations.map((combo) => ({
-      _key: `gen_${++variantKeyCounter}`,
-      id: null,
-      optionValues: combo.optionValues,
-      sku: '',
-      price: form.unite_price,
-      sale_price: form.sale_price,
-      quantity: form.quantity,
-      imageId: '',
-      isDefault: false,
-      _delete: false,
-    }));
+    const existingByKey = new Map(
+      variants
+        .filter((v) => v.optionValues?.length)
+        .map((v) => [v.optionValues.map((x) => x.trim().toLowerCase()).join('||'), v])
+    );
 
-    if (generated.length > 0) generated[0].isDefault = true;
+    const keptIds = new Set();
+    const generated = combinations.map((combo) => {
+      const key = combo.optionValues.map((x) => x.trim().toLowerCase()).join('||');
+      const prev = existingByKey.get(key);
+      if (prev) {
+        if (prev.id) keptIds.add(prev.id);
+        return { ...prev, optionValues: combo.optionValues };
+      }
+      return {
+        _key: `gen_${++variantKeyCounter}`,
+        id: null,
+        optionValues: combo.optionValues,
+        sku: '',
+        price: form.unite_price,
+        sale_price: form.sale_price,
+        quantity: form.quantity,
+        imageId: '',
+        isDefault: false,
+      };
+    });
 
-    setOptionLabels(labels);
+    if (generated.length > 0 && !generated.some((v) => v.isDefault)) {
+      generated[0].isDefault = true;
+    }
+
+    const orphaned = variants
+      .filter((v) => v.id && !keptIds.has(v.id))
+      .map((v) => v.id);
+    if (orphaned.length) {
+      setRemovedVariantIds((prev) => [...new Set([...prev, ...orphaned])]);
+    }
+
     setVariants(generated);
   };
 
-  const existingOptions = (() => {
-    if (variants.length === 0) return [];
-    const sample = variants[0];
-    const vals0 = [...new Set(variants.map((v) => v.optionValues?.[0]).filter(Boolean))];
-    const vals1 = [...new Set(variants.map((v) => v.optionValues?.[1]).filter(Boolean))];
-    const result = [];
-    if (optionLabels[0]) result.push({ name: optionLabels[0], values: vals0.join(', ') });
-    if (optionLabels[1]) result.push({ name: optionLabels[1], values: vals1.join(', ') });
-    return result.length ? result : [];
-  })();
+  const optionLabels = options
+    .filter((o) => o.values.trim())
+    .map((o) => o.name.trim() || 'Option');
 
   const clearToast = useCallback(() => setToast(null), []);
 
@@ -212,23 +241,46 @@ function EditProductForm() {
       const variantPayload = variants.map((v) => ({
         id: v.id,
         sku: v.sku,
-        size: v.optionValues?.[0] || '',
-        color: v.optionValues?.[1] || '',
-        price: v.price,
+        options: (v.optionValues || []).map((x) => x.trim()).filter(Boolean),
+        unite_price: v.price,
         sale_price: v.sale_price,
         quantity: v.quantity ? parseInt(v.quantity) : 0,
-        imageId: v.imageId,
+        imageId: v.imageId || null,
         isDefault: v.isDefault,
       }));
 
-      await updateProduct(id, {
+      const saved = await updateProduct(id, {
         ...form,
         categoryIds: selectedCategories.map((c) => c.id),
         imagePaths,
         removeImageIds,
+        options: hasVariants && optionLabels.length ? optionLabels.map((name) => ({ name })) : undefined,
         variants: variantPayload,
         removedVariantIds,
       });
+
+      // Sync ids of newly created variants so a second save updates
+      // instead of inserting duplicates.
+      const savedByKey = new Map(
+        (saved?.variants || []).map((v) => [JSON.stringify(v.options || []), v])
+      );
+      setVariants((prev) =>
+        prev.map((v) => {
+          const match = savedByKey.get(JSON.stringify((v.optionValues || []).map((x) => x.trim()).filter(Boolean)));
+          return match ? { ...v, id: match.id, imageId: match.imageId || v.imageId } : v;
+        })
+      );
+
+      // Clear staged uploads so re-saving doesn't re-upload the same files.
+      newPreviews.forEach((url) => URL.revokeObjectURL(url));
+      setNewFiles([]);
+      setNewPreviews([]);
+
+      // Refresh bookkeeping state from the server result.
+      setExistingImages(saved?.images || []);
+      setRemoveImageIds([]);
+      setRemovedVariantIds([]);
+
       setToast({ type: 'success', message: 'Product saved successfully.' });
       router.refresh();
     } catch {
@@ -324,7 +376,7 @@ function EditProductForm() {
             checked={hasVariants}
             onChange={(e) => {
               setHasVariants(e.target.checked);
-              if (!e.target.checked) { setVariants([]); setOptionLabels([]); }
+              if (!e.target.checked) { setVariants([]); setOptions([]); }
             }}
             className="h-4 w-4 rounded border-slate-300 text-[#2f0f6b] focus:ring-[#2f0f6b] dark:border-slate-600 dark:bg-slate-700"
           />
@@ -333,10 +385,13 @@ function EditProductForm() {
 
         {hasVariants && (
           <div className="space-y-6">
-            <VariantGenerator onGenerate={handleGenerate} existingOptions={existingOptions} />
+            <VariantGenerator
+              options={options}
+              onOptionsChange={setOptions}
+              onGenerate={handleGenerate}
+            />
             <ManageVariant
               variants={variants}
-              optionLabels={optionLabels}
               allImages={allImages}
               onChange={handleVariantChange}
               onRemove={removeVariant}

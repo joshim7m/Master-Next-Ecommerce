@@ -8,7 +8,12 @@ import { siteNameOf, siteUrlOf } from '../../../../src/lib/siteSettings';
 async function getProduct(slug) {
   return prisma.product.findUnique({
     where: { slug },
-    include: { images: true, variants: true, categories: true },
+    include: {
+      images: true,
+      variants: true,
+      categories: true,
+      options: { orderBy: { position: 'asc' } },
+    },
   });
 }
 

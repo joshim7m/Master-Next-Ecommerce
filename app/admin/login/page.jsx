@@ -10,6 +10,7 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -22,6 +23,22 @@ export default function AdminLoginPage() {
       .catch(() => {})
       .finally(() => setSettingsLoading(false));
   }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('admin_remember_email');
+    if (saved) {
+      setEmail(saved);
+      setRemember(true);
+    }
+  }, []);
+
+  const persistRemember = () => {
+    if (remember) {
+      localStorage.setItem('admin_remember_email', email);
+    } else {
+      localStorage.removeItem('admin_remember_email');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,6 +59,7 @@ export default function AdminLoginPage() {
         return;
       }
 
+      persistRemember();
       router.push('/admin/dashboard');
     } catch {
       setError('Network error. Please try again.');
@@ -144,6 +162,16 @@ export default function AdminLoginPage() {
                 </button>
               </div>
             </div>
+
+            <label className="flex cursor-pointer select-none items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 cursor-pointer rounded border-white/20 bg-white/5 text-[#2f0f6b] accent-[#2f0f6b] focus:outline-none focus:ring-2 focus:ring-white/20"
+              />
+              <span className="text-sm text-white/70">Remember me</span>
+            </label>
 
             {error && (
               <div className="flex animate-fade-in items-center gap-2 rounded-xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-300 backdrop-blur-sm">

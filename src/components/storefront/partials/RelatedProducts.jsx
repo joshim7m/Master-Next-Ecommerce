@@ -17,7 +17,7 @@ function RelatedCard({ product }) {
       href={`/products/${product.slug}`}
       className="group flex flex-col h-full rounded-2xl border border-border bg-white shadow-ambient transition-all duration-300 hover:shadow-ambient-lg hover:-translate-y-1 overflow-hidden dark:border-dark-border dark:bg-dark-card"
     >
-      <div className="image-hover-zoom relative aspect-[3/2] w-full overflow-hidden bg-warm-sand dark:bg-dark-card">
+      <div className="image-hover-zoom relative aspect-square w-full overflow-hidden bg-warm-sand dark:bg-dark-card">
         {img ? (
           <img
             src={img}
@@ -78,11 +78,9 @@ export default function RelatedProducts({ products }) {
   return (
     <div className="mt-12">
       <h2 className="mb-6 font-display text-headline-md font-bold text-on-surface dark:text-dark-text">Related Products</h2>
-      <div className="flex gap-5 overflow-x-auto snap-x snap-mandatory scrollbar-none pb-2">
+      <div className="grid grid-cols-2 gap-5 pb-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
         {products.map((r) => (
-          <div key={r.id} className="w-1/5 min-w-[160px] flex-shrink-0 snap-start h-full">
-            <RelatedCard product={r} />
-          </div>
+          <RelatedCard key={r.id} product={r} />
         ))}
       </div>
     </div>

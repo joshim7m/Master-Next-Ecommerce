@@ -41,6 +41,7 @@ model Product {
   categories        Category[]      @relation("ProductCategories")
   images            ProductImage[]
   variants          ProductVariant[]
+  options           ProductOption[]
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -60,13 +61,23 @@ model ProductImage {
   @@index([productId])
 }
 
+model ProductOption {
+  id        String   @id @default(uuid())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  name      String
+  position  Int
+
+  @@unique([productId, position])
+  @@index([productId])
+}
+
 model ProductVariant {
   id                String         @id @default(uuid())
   product           Product        @relation(fields: [productId], references: [id])
   productId         String
   sku               String?
-  size              String?
-  color             String?
+  options           Json           @default("[]")
   unite_price       Decimal?
   sale_price        Decimal?
   image             ProductImage?  @relation(fields: [imageId], references: [id])

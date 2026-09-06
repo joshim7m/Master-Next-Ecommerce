@@ -6,13 +6,14 @@ import Link from 'next/link';
 import { getOrderByOrderNo, updateOrderStatus, updateOrderDetails, updateOrderItemQuantity, deleteOrderItem } from '../../../../src/actions/orders';
 import ConfirmDialog from '../../../../src/components/ConfirmDialog';
 
-const orderStatuses = ['pending', 'processing', 'completed', 'cancelled'];
+const orderStatuses = ['pending', 'processing', 'completed', 'cancelled', 'return'];
 
 const orderStatusColors = {
   pending: { bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-400', dot: 'bg-amber-400' },
   processing: { bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-400', dot: 'bg-blue-500' },
   completed: { bg: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-400', dot: 'bg-emerald-500' },
   cancelled: { bg: 'bg-red-50 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', dot: 'bg-red-500' },
+  return: { bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-400', dot: 'bg-purple-500' },
 };
 
 export default function OrderDetailPage() {

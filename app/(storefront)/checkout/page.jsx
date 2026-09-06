@@ -202,20 +202,20 @@ export default function CheckoutPage() {
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Name *</label>
-              <input id="name" name="name" value={form.name} onChange={handleChange} className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.name ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-surface'}`} placeholder="Your name" />
+              <input id="name" name="name" value={form.name} onChange={handleChange} className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.name ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Your name" />
               {errors.name ? <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.name}</p> : null}
             </div>
             <div>
               <label htmlFor="mobile" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Mobile *</label>
-              <input id="mobile" name="mobile" value={form.mobile} onChange={handleChange} className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.mobile ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-surface'}`} placeholder="01XXXXXXXXX" />
+              <input id="mobile" name="mobile" value={form.mobile} onChange={handleChange} className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.mobile ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="01XXXXXXXXX" />
               {errors.mobile ? <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.mobile}</p> : null}
             </div>
             <div>
               <label htmlFor="address" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Address *</label>
-              <textarea id="address" name="address" value={form.address} onChange={handleChange} rows="3" className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.address ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-surface'}`} placeholder="Street address, building, floor" />
+              <textarea id="address" name="address" value={form.address} onChange={handleChange} rows="3" className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.address ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Street address, building, floor" />
               {errors.address ? <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.address}</p> : null}
             </div>
-            <div className="rounded-xl border border-border bg-warm-sand p-4 dark:border-dark-border dark:bg-dark-surface">
+            <div className="rounded-xl border border-border bg-warm-sand p-4 dark:border-dark-border dark:bg-dark-bg">
               <p className="text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Delivery</p>
               <div className="mt-3 space-y-2">
                 <label className="flex items-center gap-3">
@@ -229,14 +229,6 @@ export default function CheckoutPage() {
               </div>
             </div>
           </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary/90 active:scale-[0.98] transition disabled:opacity-50 dark:bg-primary dark:text-dark-text"
-          >
-            {submitting ? 'Processing...' : 'Place Order'}
-          </button>
         </div>
 
         <aside className="mt-6 rounded-2xl border border-border bg-white shadow-ambient lg:mt-0 dark:border-dark-border dark:bg-dark-card">
@@ -249,7 +241,7 @@ export default function CheckoutPage() {
                 {item.image ? (
                   <img src={item.image} alt={item.title} className="h-14 w-14 flex-shrink-0 rounded-xl object-cover" />
                 ) : (
-                  <div className="h-14 w-14 flex-shrink-0 rounded-xl bg-warm-sand dark:bg-dark-surface" />
+                  <div className="h-14 w-14 flex-shrink-0 rounded-xl bg-warm-sand dark:bg-dark-card" />
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium leading-snug break-words text-on-surface dark:text-dark-text">{item.title}</p>
@@ -278,6 +270,16 @@ export default function CheckoutPage() {
               <span className="text-sm font-semibold text-on-surface dark:text-dark-text">Total</span>
               <span className="text-lg font-bold text-primary dark:text-primary">৳ {total.toLocaleString()}</span>
             </div>
+          </div>
+          <div className="border-t border-border px-4 py-4 sm:px-6 dark:border-dark-border">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 text-sm font-bold text-on-primary hover:bg-primary/90 active:scale-[0.98] transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary dark:text-on-primary dark:hover:bg-primary/90"
+            >
+              <span className="material-symbols-outlined text-[20px]">shopping_cart_checkout</span>
+              {submitting ? 'Processing...' : 'Place Order'}
+            </button>
           </div>
         </aside>
       </form>

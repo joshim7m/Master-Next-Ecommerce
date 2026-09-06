@@ -53,7 +53,7 @@ export default function CartDrawer({ open, onClose }) {
       )}
 
       <div
-        className={`fixed right-0 top-0 z-[120] flex h-full w-full flex-col bg-white shadow-2xl transition-transform duration-300 sm:w-[420px] dark:bg-dark-surface ${
+        className={`fixed right-0 top-0 z-[120] flex h-full w-full flex-col bg-white shadow-2xl transition-transform duration-300 sm:w-[420px] dark:bg-dark-bg ${
           open ? 'translate-x-0' : 'translate-x-full'
         }`}
         role="dialog"
@@ -155,14 +155,14 @@ export default function CartDrawer({ open, onClose }) {
             <Link
               href="/checkout"
               onClick={onClose}
-              className="mb-2 flex w-full items-center justify-center rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white hover:bg-primary/90 transition dark:bg-primary dark:text-dark-text dark:hover:bg-primary/90"
+              className="mb-2 flex w-full items-center justify-center rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-on-primary hover:bg-primary/90 transition dark:bg-primary dark:text-on-primary dark:hover:bg-primary/90"
             >
               Checkout
             </Link>
             <Link
               href="/cart"
               onClick={onClose}
-              className="flex w-full items-center justify-center rounded-xl border-2 border-primary px-6 py-3 text-sm font-semibold text-primary hover:bg-primary/5 transition dark:border-primary dark:text-primary dark:hover:bg-primary/10"
+              className="flex w-full items-center justify-center rounded-xl border-2 border-primary bg-white px-6 py-3 text-sm font-semibold text-primary transition hover:bg-primary hover:text-on-primary dark:bg-dark-card dark:text-primary dark:hover:bg-primary dark:hover:text-on-primary"
             >
               View Cart
             </Link>

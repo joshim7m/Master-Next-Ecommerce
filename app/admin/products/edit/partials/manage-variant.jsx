@@ -60,7 +60,7 @@ function ImageCell({ imageId, allImages, onSelect }) {
   );
 }
 
-export default function ManageVariant({ variants, optionLabels, allImages, onChange, onRemove, onToggleDefault }) {
+export default function ManageVariant({ variants, allImages, onChange, onRemove, onToggleDefault }) {
   if (variants.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 py-8 text-center text-sm text-slate-400 dark:border-slate-700 dark:text-slate-500">

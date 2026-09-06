@@ -27,27 +27,37 @@ export async function generateMetadata() {
   };
 }
 
-export default async function CategoryListingPage() {
-  const [settings, categories] = await Promise.all([
+const PER_PAGE = 18;
+
+export default async function CategoryListingPage({ searchParams }) {
+  const sp = await searchParams;
+  const page = Math.max(1, Number(sp?.page) || 1);
+  const skip = (page - 1) * PER_PAGE;
+
+  const [settings, total, categories, allCategories, bannerCat] = await Promise.all([
     getSiteSettings(),
+    prisma.category.count(),
     prisma.category.findMany({
       orderBy: { name: 'asc' },
+      skip,
+      take: PER_PAGE,
       include: { _count: { select: { products: true } } },
     }),
+    prisma.category.findMany({ select: { name: true, slug: true } }),
+    prisma.category.findFirst({ where: { image: { not: null } }, orderBy: { name: 'asc' } }),
   ]);
 
+  const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
+
   const siteUrl = siteUrlOf(settings);
-  const randomCat = categories.filter((c) => c.image).length
-    ? categories.filter((c) => c.image)[Math.floor(Math.random() * categories.filter((c) => c.image).length)]
-    : null;
-  const bannerImage = randomCat?.image || null;
+  const bannerImage = bannerCat?.image || null;
   const collectionJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: `All Categories — ${siteNameOf(settings)} Bangladesh`,
     description: `Browse all product categories at ${siteNameOf(settings)} — lingerie, bras, panties, nightwear, and more.`,
     url: `${siteUrl}/categories`,
-    hasPart: categories.map((c) => ({
+    hasPart: allCategories.map((c) => ({
       '@type': 'CollectionPage',
       name: c.name,
       url: `${siteUrl}/categories/${c.slug}`,
@@ -60,49 +70,49 @@ export default async function CategoryListingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
       />
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 sm:py-12">
-        <div className="relative mb-10 aspect-[3/2] overflow-hidden rounded-2xl bg-slate-200 sm:aspect-[4/1]">
-          {bannerImage ? (
-            <img src={bannerImage} alt={randomCat.name || ''} className="h-full w-full object-cover" />
-          ) : (
-            <div className="h-full w-full" />
+      <section className="mx-auto w-full max-w-7xl px-page-margin-mobile py-6 sm:px-6 sm:py-10 lg:px-page-margin-desktop">
+        <div className="relative mb-8 overflow-hidden rounded-2xl bg-gradient-to-r from-editorial-ink via-[#3b0764] to-purple-800 shadow-ambient-lg sm:mb-12">
+          {bannerImage && (
+            <img src={bannerImage} alt={bannerCat?.name || ''} className="absolute inset-0 h-full w-full object-cover opacity-30" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent" />
-          <div className="absolute inset-0 flex flex-col justify-center px-6 sm:px-10">
-            <h1 className="text-2xl font-bold text-white drop-shadow-lg sm:text-4xl">Categories</h1>
-            <p className="mt-1 text-sm text-white/80 sm:text-base">{categories.length} product categories</p>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/30 to-transparent" />
+          <div className="relative flex min-h-[9rem] flex-col justify-center px-6 py-8 sm:min-h-[12rem] sm:px-10">
+            <h1 className="font-display text-3xl font-bold text-white drop-shadow-lg sm:text-4xl">Shop Categories</h1>
+            <p className="mt-2 text-sm text-white/85 sm:text-base">{total} categories to explore</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6">
           {categories.map((category) => {
             const imgSrc = category.image;
             return (
               <Link
                 key={category.id}
                 href={`/categories/${category.slug}`}
-                className="group flex flex-col items-center rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-200 hover:shadow-lg hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-[#2f0f6b] focus:ring-offset-2"
+                className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-ambient transition-all duration-300 hover:-translate-y-1 hover:shadow-ambient-lg focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:border-dark-border dark:bg-dark-card"
               >
-                <div className="mb-3 aspect-square w-full overflow-hidden rounded-xl bg-slate-100">
+                <div className="image-hover-zoom relative aspect-square w-full overflow-hidden bg-warm-sand dark:bg-dark-card">
                   {imgSrc ? (
                     <img
                       src={imgSrc}
                       alt={category.name}
-                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                       loading="lazy"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200">
-                      <span className="text-2xl font-bold text-slate-400">{category.name.charAt(0)}</span>
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-warm-sand to-soft-blush dark:from-dark-card dark:to-dark-bg">
+                      <span className="text-3xl font-bold text-muted/40 dark:text-dark-muted/40">
+                        {category.name.charAt(0)}
+                      </span>
                     </div>
                   )}
                 </div>
-                <div className="w-full text-center">
-                  <h2 className="text-sm font-semibold text-slate-900 group-hover:text-[#2f0f6b] transition-colors line-clamp-2">
+                <div className="flex flex-1 flex-col items-center justify-center gap-1 p-3 text-center">
+                  <h2 className="line-clamp-2 text-xs font-semibold text-on-surface transition-colors group-hover:text-primary dark:text-dark-text dark:group-hover:text-primary">
                     {category.name}
                   </h2>
-                  <span className="mt-1 inline-flex items-center justify-center h-5 rounded-full bg-[#2f0f6b]/10 px-2 text-[10px] font-semibold text-[#2f0f6b]">
-                    {category._count.products}
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
+                    {category._count.products} items
                   </span>
                 </div>
               </Link>
@@ -110,9 +120,44 @@ export default async function CategoryListingPage() {
           })}
         </div>
 
+        {totalPages > 1 && (
+          <nav className="mt-10 flex flex-wrap items-center justify-center gap-2" aria-label="Pagination">
+            <Link
+              href={`/categories?page=${page - 1}`}
+              aria-disabled={page <= 1}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-white text-on-surface/70 transition hover:border-primary hover:text-primary dark:border-dark-border dark:bg-dark-card dark:text-dark-text/70 dark:hover:text-primary ${page <= 1 ? 'pointer-events-none opacity-40' : ''}`}
+            >
+              <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+            </Link>
+            {Array.from({ length: totalPages }, (_, i) => {
+              const n = i + 1;
+              return n === page ? (
+                <span key={n} className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-sm font-bold text-on-primary shadow-sm dark:bg-primary dark:text-on-primary">
+                  {n}
+                </span>
+              ) : (
+                <Link
+                  key={n}
+                  href={`/categories?page=${n}`}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-white text-sm font-semibold text-on-surface/70 transition hover:border-primary hover:text-primary dark:border-dark-border dark:bg-dark-card dark:text-dark-text/70 dark:hover:text-primary"
+                >
+                  {n}
+                </Link>
+              );
+            })}
+            <Link
+              href={`/categories?page=${page + 1}`}
+              aria-disabled={page >= totalPages}
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-white text-on-surface/70 transition hover:border-primary hover:text-primary dark:border-dark-border dark:bg-dark-card dark:text-dark-text/70 dark:hover:text-primary ${page >= totalPages ? 'pointer-events-none opacity-40' : ''}`}
+            >
+              <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+            </Link>
+          </nav>
+        )}
+
         {categories.length === 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white p-12 text-center">
-            <p className="text-slate-500">No categories available yet.</p>
+          <div className="rounded-2xl border border-border bg-white p-12 text-center shadow-ambient dark:border-dark-border dark:bg-dark-card">
+            <p className="text-muted dark:text-dark-muted">No categories available yet.</p>
           </div>
         )}
       </section>

@@ -98,6 +98,7 @@ export default function AdminBlogPostsPage() {
         <table className="w-full min-w-[600px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50">
+              <th className="w-10 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">SN</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Title</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Category</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
@@ -106,17 +107,18 @@ export default function AdminBlogPostsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {data.posts.map((post) => (
+            {data.posts.map((post, index) => (
               <tr key={post.id} className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30">
+                <td className="w-10 py-3 text-center text-slate-500 whitespace-nowrap dark:text-slate-400">{(page - 1) * 12 + index + 1}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     {post.bannerImage ? (
-                      <div className="aspect-video w-14 shrink-0 overflow-hidden rounded border border-slate-200 dark:border-slate-700">
+                      <div className="aspect-video w-10 shrink-0 overflow-hidden rounded border border-slate-200 dark:border-slate-700">
                         <img src={post.bannerImage} alt="" className="h-full w-full object-cover" />
                       </div>
                     ) : (
-                      <div className="flex aspect-video w-14 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-100 text-slate-300 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-500">
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex aspect-video w-10 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-100 text-slate-300 dark:border-slate-700 dark:bg-slate-700 dark:text-slate-500">
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
@@ -145,7 +147,7 @@ export default function AdminBlogPostsPage() {
               </tr>
             ))}
             {data.posts.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-400 dark:text-slate-500">No posts found.</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400 dark:text-slate-500">No posts found.</td></tr>
             )}
           </tbody>
         </table>

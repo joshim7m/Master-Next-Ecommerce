@@ -7,6 +7,11 @@ const TABS = ['Description', 'Specifications', 'Reviews'];
 export default function ProductTabs({ product, selectedVariant }) {
   const [active, setActive] = useState('Description');
 
+  const optionNames = (product.options || [])
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((o) => o.name);
+
   const tabs = {
     Description: (
       <div className="prose prose-sm max-w-none text-on-surface/70 dark:text-dark-text/70">
@@ -31,8 +36,13 @@ export default function ProductTabs({ product, selectedVariant }) {
               Variant {i + 1}
             </p>
             <div className="mt-2 space-y-1">
-              {v.size && <p className="text-on-surface/70 dark:text-dark-text/70"><span className="font-medium">Size:</span> {v.size}</p>}
-              {v.color && <p className="text-on-surface/70 dark:text-dark-text/70"><span className="font-medium">Color:</span> {v.color}</p>}
+              {(v.options || []).map((val, j) =>
+                val ? (
+                  <p key={j} className="text-on-surface/70 dark:text-dark-text/70">
+                    <span className="font-medium">{optionNames[j] || `Option ${j + 1}`}:</span> {val}
+                  </p>
+                ) : null
+              )}
               {v.sku && <p className="text-on-surface/70 dark:text-dark-text/70"><span className="font-medium">SKU:</span> {v.sku}</p>}
               <p className="text-on-surface/70 dark:text-dark-text/70">
                 <span className="font-medium">Stock:</span>{' '}

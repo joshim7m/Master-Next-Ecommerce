@@ -27,6 +27,7 @@ export default function AdminProductsPage() {
   const PER_PAGE = 20;
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterFeatured, setFilterFeatured] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
 
   useEffect(() => {
@@ -54,14 +55,22 @@ export default function AdminProductsPage() {
       list = list.filter((p) => p.title.toLowerCase().includes(q));
     }
     if (filterStatus !== 'all') list = list.filter((p) => p.status === filterStatus);
-    if (filterCategory !== 'all') list = list.filter((p) => p.categories?.some((c) => c.slug === filterCategory));
+    if (filterFeatured !== 'all') list = list.filter((p) => (filterFeatured === 'yes') === !!p.featured);
+    if (filterCategory !== 'all') {
+      if (filterCategory === 'top') {
+        const topSlugs = new Set(categories.filter((c) => !c.parentId).map((c) => c.slug));
+        list = list.filter((p) => p.categories?.some((c) => topSlugs.has(c.slug)));
+      } else {
+        list = list.filter((p) => p.categories?.some((c) => c.slug === filterCategory));
+      }
+    }
     return list;
-  }, [products, search, filterStatus, filterCategory]);
+  }, [products, search, filterStatus, filterFeatured, filterCategory, categories]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE) || 1;
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  useEffect(() => { setPage(1); }, [search, filterStatus, filterCategory]);
+  useEffect(() => { setPage(1); }, [search, filterStatus, filterFeatured, filterCategory]);
 
   const refetch = () => Promise.all([getProducts(), getCategories()]).then(([p, c]) => { setProducts(p); setCategories(c); });
 
@@ -97,12 +106,18 @@ export default function AdminProductsPage() {
             <option value="publish">Published</option>
             <option value="draft">Draft</option>
           </select>
+          <select value={filterFeatured} onChange={(e) => setFilterFeatured(e.target.value)} className="flex-1 sm:flex-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]">
+            <option value="all">Featured</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
           <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="flex-1 sm:flex-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]">
             <option value="all">Category</option>
+            <option value="top">Top-level</option>
             {categories.map((c) => <option key={c.id} value={c.slug}>{c.name}</option>)}
           </select>
-          {(filterStatus !== 'all' || filterCategory !== 'all' || search) && (
-            <button onClick={() => { setFilterStatus('all'); setFilterCategory('all'); setSearch(''); }} className="shrink-0 px-2 text-sm text-slate-500 hover:text-slate-700 transition dark:text-slate-400 dark:hover:text-slate-300">Clear</button>
+          {(filterStatus !== 'all' || filterFeatured !== 'all' || filterCategory !== 'all' || search) && (
+            <button onClick={() => { setFilterStatus('all'); setFilterFeatured('all'); setFilterCategory('all'); setSearch(''); }} className="shrink-0 px-2 text-sm text-slate-500 hover:text-slate-700 transition dark:text-slate-400 dark:hover:text-slate-300">Clear</button>
           )}
         </div>
       </div>
@@ -111,8 +126,8 @@ export default function AdminProductsPage() {
         <table className="w-full min-w-[700px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50">
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-12"></th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Title</th>
+              <th className="w-10 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">SN</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Product</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Price</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Featured</th>
@@ -122,24 +137,27 @@ export default function AdminProductsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {paginated.map((p) => (
+            {paginated.map((p, index) => (
               <tr key={p.id} className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30">
-                <td className="w-[88px] px-4 py-2">
-                  {p.images?.[0]?.image_path ? (
-                    <div className="aspect-video w-12 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-                      <img src={p.images[0].image_path} alt="" className="h-full w-full object-cover" />
+                <td className="w-10 py-3 text-center text-slate-500 whitespace-nowrap dark:text-slate-400">{(page - 1) * PER_PAGE + index + 1}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    {p.images?.[0]?.image_path ? (
+                      <div className="h-9 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                        <img src={p.images[0].image_path} alt="" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="flex h-9 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-300 border border-slate-200 dark:bg-slate-700 dark:text-slate-600 dark:border-slate-600">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <Link href={`/admin/products/edit?id=${p.id}`} className="block max-w-[240px] truncate font-medium text-slate-900 hover:text-[#2f0f6b] transition dark:text-white dark:hover:text-[#a78bfa]">{p.title}</Link>
+                      {p.sku && <p className="text-xs text-slate-400 mt-0.5 dark:text-slate-500">SKU: {p.sku}</p>}
                     </div>
-                  ) : (
-                    <div className="flex aspect-video w-12 items-center justify-center rounded-lg bg-slate-100 text-slate-300 border border-slate-200 dark:bg-slate-700 dark:text-slate-600 dark:border-slate-600">
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                      </svg>
-                    </div>
-                  )}
-                </td>
-                <td className="px-4 py-3 max-w-[200px] truncate">
-                  <Link href={`/admin/products/edit?id=${p.id}`} className="font-medium text-slate-900 hover:text-[#2f0f6b] transition dark:text-white dark:hover:text-[#a78bfa]">{p.title}</Link>
-                  {p.sku && <p className="text-xs text-slate-400 mt-0.5 dark:text-slate-500">SKU: {p.sku}</p>}
+                  </div>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span className="font-medium text-slate-900 dark:text-white">৳{Number(p.sale_price || p.unite_price).toLocaleString()}</span>
@@ -209,7 +227,7 @@ export default function AdminProductsPage() {
               </tr>
             ))}
             {paginated.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">{search || filterStatus !== 'all' || filterCategory !== 'all' ? 'No products match your filters.' : 'No products yet.'}</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">{search || filterStatus !== 'all' || filterFeatured !== 'all' || filterCategory !== 'all' ? 'No products match your filters.' : 'No products yet.'}</td></tr>
             ) : null}
           </tbody>
         </table>

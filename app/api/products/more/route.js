@@ -22,7 +22,7 @@ export async function GET(request) {
     unite_price: Number(p.unite_price),
     sale_price: p.sale_price ? Number(p.sale_price) : null,
     images: (p.images || []).map((i) => ({ image_path: i.image_path, altText: i.altText || null })),
-    variants: (p.variants || []).map((v) => ({ id: v.id, variant_name: v.variant_name || null })),
+    variants: (p.variants || []).map((v) => ({ id: v.id, options: v.options || [] })),
   }));
 
   return NextResponse.json(mapped);

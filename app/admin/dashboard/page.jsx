@@ -26,6 +26,7 @@ function StatusBadge({ status }) {
     processing: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     pending: 'bg-slate-50 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
     cancelled: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+    return: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   };
   return (
     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${colors[status] || colors.pending}`}>

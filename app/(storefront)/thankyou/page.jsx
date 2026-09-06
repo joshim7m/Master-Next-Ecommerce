@@ -10,8 +10,8 @@ export const metadata = {
 
 export default function ThankYouPage() {
   return (
-    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-      <Suspense fallback={<div className="mx-auto max-w-lg rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800"><p className="text-slate-500 dark:text-slate-400">Loading...</p></div>}>
+    <section className="mx-auto w-full max-w-7xl px-4 sm:px-6">
+      <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><div className="mx-auto max-w-sm rounded-2xl border border-border bg-white p-10 text-center shadow-ambient dark:border-dark-border dark:bg-dark-card"><p className="text-muted dark:text-dark-muted">Loading...</p></div></div>}>
         <ThankYouContent />
       </Suspense>
     </section>

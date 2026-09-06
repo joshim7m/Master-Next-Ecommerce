@@ -9,6 +9,7 @@ export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [parentFilter, setParentFilter] = useState('');
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', slug: '', image: '', description: '' });
   const [page, setPage] = useState(0);
@@ -18,10 +19,17 @@ export default function AdminCategoriesPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return categories;
-    const q = search.toLowerCase();
-    return categories.filter((c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q));
-  }, [categories, search]);
+    let list = categories;
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q));
+    }
+    if (parentFilter) {
+      if (parentFilter === 'top') list = list.filter((c) => !c.parentId);
+      else list = list.filter((c) => c.parentId === parentFilter);
+    }
+    return list;
+  }, [categories, search, parentFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const safePage = Math.min(page, totalPages - 1);
@@ -84,11 +92,24 @@ export default function AdminCategoriesPage() {
         <button onClick={openCreate} className="shrink-0 rounded-lg bg-[#2f0f6b] px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white hover:bg-[#2f0f6b]/90 transition">+ New</button>
       </div>
 
-      <div className="relative max-w-full sm:max-w-xs">
-        <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
-        <input type="text" placeholder="Search..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm placeholder-slate-400 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="relative max-w-full sm:max-w-xs">
+          <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input type="text" placeholder="Search..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm placeholder-slate-400 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500" />
+        </div>
+        <select
+          value={parentFilter}
+          onChange={(e) => { setParentFilter(e.target.value); setPage(0); }}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        >
+          <option value="">All Categories</option>
+          <option value="top">Top-level</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>Parent: {c.name}</option>
+          ))}
+        </select>
       </div>
 
       {editing ? (
@@ -175,29 +196,32 @@ export default function AdminCategoriesPage() {
         <table className="w-full min-w-[600px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50">
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Image</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Name</th>
+              <th className="w-10 py-3 pl-2 pr-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">SN</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Category</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Slug</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Parent</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {paginated.map((cat) => (
+            {paginated.map((cat, index) => (
               <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30">
+                <td className="w-10 py-3 pl-2 pr-1 text-slate-500 whitespace-nowrap dark:text-slate-400">{safePage * PER_PAGE + index + 1}</td>
                 <td className="px-4 py-3">
-                  {cat.image ? (
-                    <img src={cat.image} alt={cat.name} className="h-10 w-10 rounded-lg border border-slate-200 object-cover dark:border-slate-700" />
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-400 dark:bg-slate-700 dark:text-slate-500">
-                      {cat.name.charAt(0).toUpperCase()}
+                  <div className="flex items-center gap-3">
+                    {cat.image ? (
+                      <img src={cat.image} alt={cat.name} className="h-10 w-10 rounded-lg border border-slate-200 object-cover dark:border-slate-700" />
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-400 dark:bg-slate-700 dark:text-slate-500">
+                        {cat.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <span className="block truncate font-medium text-slate-900 dark:text-white">{cat.name}</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-400">({cat._count?.products ?? 0})</span>
                     </div>
-                  )}
+                  </div>
                 </td>
-                <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
-                  <span>{cat.name} - </span>
-                  <span className='text-xs dark:text-slate-400'>({cat._count?.products ?? 0})</span>
-                  </td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{cat.slug}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{cat.parent?.name || <span className="text-slate-300 dark:text-slate-600">none</span>}</td>
                 <td className="px-4 py-3 text-right">
@@ -213,7 +237,7 @@ export default function AdminCategoriesPage() {
               </tr>
             ))}
             {paginated.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-400">{search ? 'No categories match your search.' : 'No categories yet.'}</td></tr>
+              <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-400">{search ? 'No categories match your search.' : 'No categories yet.'}</td></tr>
             ) : null}
           </tbody>
         </table>

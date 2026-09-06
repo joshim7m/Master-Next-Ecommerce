@@ -12,6 +12,7 @@ module.exports = {
           primary: '#ae2f34',
           secondary: '#684fa6',
         },
+        primary: '#ae2f34',
         'editorial-ink': '#1A0A3E',
         'warm-sand': '#F9F7F2',
         'soft-blush': '#FFF0F0',

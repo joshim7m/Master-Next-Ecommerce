@@ -17,6 +17,7 @@ export default function TrendingCard({ product, index = 0 }) {
   const originalPrice = product.sale_price ? Number(product.unite_price) : null;
   const firstImage = product.images?.[0]?.image_path;
   const variant = product.variants?.[0];
+  const variantName = variant ? ((variant.options || []).filter(Boolean).join(' / ') || 'Default') : 'Default';
 
   useEffect(() => {
     if (imgRef.current?.complete) setLoaded(true);
@@ -45,7 +46,7 @@ export default function TrendingCard({ product, index = 0 }) {
       title: product.title,
       image: firstImage || '',
       variantId: variant ? variant.id : 'default',
-      variantName: variant ? (variant.variant_name || 'Default') : 'Default',
+      variantName,
       price: String(price),
       salePrice: product.sale_price ? String(product.sale_price) : null,
       quantity: 1,
@@ -59,7 +60,7 @@ export default function TrendingCard({ product, index = 0 }) {
           item_id: product.sku,
           item_name: product.title,
           price: Number(price),
-          item_variant: variant ? (variant.variant_name || 'Default') : 'Default',
+          item_variant: variantName,
           quantity: 1,
         }],
       },

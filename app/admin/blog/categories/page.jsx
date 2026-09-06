@@ -149,8 +149,8 @@ export default function AdminBlogCategoriesPage() {
         <table className="w-full min-w-[650px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50">
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Image</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Title</th>
+              <th className="w-10 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">SN</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Category</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Slug</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Author</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Status</th>
@@ -159,16 +159,19 @@ export default function AdminBlogCategoriesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {paginated.map((cat) => (
+            {paginated.map((cat, index) => (
               <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30">
-                <td className="w-[72px] px-4 py-3">
-                  {cat.image ? (
-                    <img src={cat.image} alt={cat.title} className="h-10 w-10 rounded-lg border border-slate-200 object-cover dark:border-slate-700" />
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-400 dark:bg-slate-900/50 dark:text-slate-500">{cat.title.charAt(0).toUpperCase()}</div>
-                  )}
+                <td className="w-10 py-3 text-center text-slate-500 whitespace-nowrap dark:text-slate-400">{safePage * PER_PAGE + index + 1}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    {cat.image ? (
+                      <img src={cat.image} alt={cat.title} className="h-9 w-9 shrink-0 rounded-lg border border-slate-200 object-cover dark:border-slate-700" />
+                    ) : (
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-400 dark:bg-slate-900/50 dark:text-slate-500">{cat.title.charAt(0).toUpperCase()}</div>
+                    )}
+                    <span className="min-w-0 font-medium text-slate-900 dark:text-white">{cat.title}</span>
+                  </div>
                 </td>
-                <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{cat.title}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{cat.slug}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{cat.authorName || <span className="text-slate-300 dark:text-slate-600">&mdash;</span>}</td>
                 <td className="px-4 py-3 text-center">

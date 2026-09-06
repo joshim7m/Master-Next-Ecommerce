@@ -45,7 +45,7 @@ function ImageUpload({ value, onUpload, onRemove }) {
   );
 }
 
-function SlideCard({ slide, onEdit, onDelete, onMove, isFirst, isLast }) {
+function SlideCard({ slide, sn, onEdit, onDelete, onMove, isFirst, isLast }) {
   return (
     <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm">
       <div className="flex gap-3">
@@ -57,9 +57,12 @@ function SlideCard({ slide, onEdit, onDelete, onMove, isFirst, isLast }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">{slide.title || <span className="text-slate-300 dark:text-slate-500">Untitled</span>}</h3>
-            <span className={`flex-shrink-0 inline-flex h-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${slide.isActive ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'}`}>
-              {slide.isActive ? 'Active' : 'Off'}
-            </span>
+            <div className="flex flex-shrink-0 items-center gap-1.5">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-700 text-[10px] font-semibold text-slate-500 dark:text-slate-400">{sn}</span>
+              <span className={`inline-flex h-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${slide.isActive ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'}`}>
+                {slide.isActive ? 'Active' : 'Off'}
+              </span>
+            </div>
           </div>
           {slide.subtitle && <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{slide.subtitle}</p>}
           {slide.buttonText && (
@@ -286,6 +289,7 @@ export default function HeroSlidersPage() {
           <SlideCard
             key={slide.id}
             slide={slide}
+            sn={safePage * PER_PAGE + i + 1}
             onEdit={openEdit}
             onDelete={handleDelete}
             onMove={handleMove}
@@ -304,8 +308,8 @@ export default function HeroSlidersPage() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50">
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Image</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Title</th>
+              <th className="w-10 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">SN</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Slide</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Subtitle</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Button</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center">Active</th>
@@ -316,14 +320,17 @@ export default function HeroSlidersPage() {
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {paginated.map((slide, i) => (
               <tr key={slide.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
+                <td className="w-10 py-3 text-center text-slate-500 whitespace-nowrap dark:text-slate-400">{safePage * PER_PAGE + i + 1}</td>
                 <td className="px-4 py-3">
-                  {slide.image ? (
-                    <img src={slide.image} alt="" className="h-10 w-20 rounded border border-slate-200 dark:border-slate-700 object-cover" />
-                  ) : (
-                    <span className="inline-flex h-10 w-20 items-center justify-center rounded border border-dashed border-slate-200 dark:border-slate-700 text-[10px] text-slate-300 dark:text-slate-500">No image</span>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {slide.image ? (
+                      <img src={slide.image} alt="" className="h-10 w-16 shrink-0 rounded border border-slate-200 dark:border-slate-700 object-cover" />
+                    ) : (
+                      <span className="inline-flex h-10 w-16 shrink-0 items-center justify-center rounded border border-dashed border-slate-200 dark:border-slate-700 text-[10px] text-slate-300 dark:text-slate-500">No image</span>
+                    )}
+                    <span className="min-w-0 max-w-[180px] truncate font-medium text-slate-900 dark:text-white">{slide.title || <span className="text-slate-300 dark:text-slate-500">—</span>}</span>
+                  </div>
                 </td>
-                <td className="px-4 py-3 font-medium text-slate-900 dark:text-white max-w-[180px] truncate">{slide.title || <span className="text-slate-300 dark:text-slate-500">—</span>}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-[200px] truncate">{slide.subtitle || <span className="text-slate-300 dark:text-slate-500">—</span>}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400 max-w-[140px] truncate">
                   {slide.buttonText ? (
