@@ -76,7 +76,13 @@ export default async function HomePage({ searchParams }) {
   ]);
 
   const parentCats = categories.filter((c) => !c.parentId);
-  const allCats = categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug, image: c.image }));
+  const allCats = categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    image: c.image,
+    count: c._count?.products || 0,
+  }));
 
   // Pick 3 random categories with real images for the promo banner
   const catsWithImages = categories.filter(

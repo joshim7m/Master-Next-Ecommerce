@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadCart, clearCart } from '../../../src/lib/cartStorage';
 import { pushDataLayer } from '../../../src/lib/gtm';
 import useDeviceFingerprint from '../../../src/hooks/useDeviceFingerprint';
 
 const MOBILE_REGEX = /^(013|014|015|016|017|018|019)\d{8}$/;
+const DRAFT_KEY = 'incomplete-checkout-orderNo';
+const DRAFT_SAVE_DELAY = 1200;
 
 function validate(form) {
   const errors = {};
@@ -91,6 +93,64 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const draftOrderNoRef = useRef(null);
+  const lastDraftPayloadRef = useRef('');
+
+  useEffect(() => {
+    draftOrderNoRef.current = sessionStorage.getItem(DRAFT_KEY);
+  }, []);
+
+  // Debounced autosave of the incomplete checkout. Nothing is saved until a
+  // valid mobile number exists (client gate; the server validates it too).
+  useEffect(() => {
+    if (!hydrated || submitting || !deviceHash) return;
+
+    if (cart.length === 0) {
+      if (draftOrderNoRef.current) {
+        const orderNo = draftOrderNoRef.current;
+        draftOrderNoRef.current = null;
+        lastDraftPayloadRef.current = '';
+        sessionStorage.removeItem(DRAFT_KEY);
+        fetch(`/api/checkout/incomplete?orderNo=${encodeURIComponent(orderNo)}`, { method: 'DELETE' }).catch(() => {});
+      }
+      return;
+    }
+
+    const mobile = form.mobile.trim();
+    if (!MOBILE_REGEX.test(mobile)) return;
+
+    const payload = {
+      name: form.name.trim(),
+      mobile,
+      address: form.address.trim(),
+      shippingArea: form.shippingArea,
+      items: cart,
+      deviceHash,
+    };
+    const payloadKey = JSON.stringify(payload);
+    if (draftOrderNoRef.current && payloadKey === lastDraftPayloadRef.current) return;
+
+    const timer = setTimeout(() => {
+      lastDraftPayloadRef.current = payloadKey;
+      fetch('/api/checkout/incomplete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, orderNo: draftOrderNoRef.current || undefined }),
+      })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.orderNo) {
+            draftOrderNoRef.current = data.orderNo;
+            sessionStorage.setItem(DRAFT_KEY, data.orderNo);
+          }
+        })
+        .catch(() => {});
+    }, DRAFT_SAVE_DELAY);
+
+    return () => clearTimeout(timer);
+  }, [form, cart, hydrated, submitting, deviceHash]);
+
   const deliveryCharge = form.shippingArea === 'Outside Dhaka' ? 120 : 80;
   const subtotal = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
   const total = subtotal + deliveryCharge;
@@ -132,7 +192,7 @@ export default function CheckoutPage() {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, items: cart, deviceHash }),
+        body: JSON.stringify({ ...form, items: cart, deviceHash, draftOrderNo: draftOrderNoRef.current || undefined }),
       });
 
       if (!res.ok) {
@@ -141,6 +201,10 @@ export default function CheckoutPage() {
 
       const data = await res.json();
       if (!data.orderNo) throw new Error('Invalid response from server');
+
+      draftOrderNoRef.current = null;
+      lastDraftPayloadRef.current = '';
+      sessionStorage.removeItem(DRAFT_KEY);
 
       const delivery = form.shippingArea === 'Outside Dhaka' ? 120 : 80;
       const sub = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
@@ -196,46 +260,98 @@ export default function CheckoutPage() {
           <h1 className="text-xl font-bold text-on-surface sm:text-2xl dark:text-dark-text">Checkout</h1>
 
           {errorMsg ? (
-            <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400">{errorMsg}</div>
+            <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">{errorMsg}</div>
           ) : null}
 
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Name *</label>
-              <input id="name" name="name" value={form.name} onChange={handleChange} className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.name ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Your name" />
-              {errors.name ? <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.name}</p> : null}
+              <input id="name" name="name" value={form.name} onChange={handleChange} className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.name ? 'border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Your name" />
+              {errors.name ? <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">{errors.name}</p> : null}
             </div>
             <div>
               <label htmlFor="mobile" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Mobile *</label>
-              <input id="mobile" name="mobile" value={form.mobile} onChange={handleChange} className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.mobile ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="01XXXXXXXXX" />
-              {errors.mobile ? <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.mobile}</p> : null}
+              <input id="mobile" name="mobile" value={form.mobile} onChange={handleChange} className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.mobile ? 'border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="01XXXXXXXXX" />
+              {errors.mobile ? <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">{errors.mobile}</p> : null}
             </div>
             <div>
               <label htmlFor="address" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Address *</label>
-              <textarea id="address" name="address" value={form.address} onChange={handleChange} rows="3" className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.address ? 'border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Street address, building, floor" />
-              {errors.address ? <p className="mt-1 text-xs font-medium text-red-600 dark:text-red-400">{errors.address}</p> : null}
+              <textarea id="address" name="address" value={form.address} onChange={handleChange} rows="3" className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.address ? 'border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Street address, building, floor" />
+              {errors.address ? <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">{errors.address}</p> : null}
             </div>
             <div className="rounded-xl border border-border bg-warm-sand p-4 dark:border-dark-border dark:bg-dark-bg">
               <p className="text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Delivery</p>
-              <div className="mt-3 space-y-2">
-                <label className="flex items-center gap-3">
-                  <input type="radio" name="shippingArea" value="Inside Dhaka" checked={form.shippingArea === 'Inside Dhaka'} onChange={handleChange} className="h-4 w-4 text-primary" />
-                  <span className="text-sm">Inside Dhaka — 80 taka</span>
-                </label>
-                <label className="flex items-center gap-3">
-                  <input type="radio" name="shippingArea" value="Outside Dhaka" checked={form.shippingArea === 'Outside Dhaka'} onChange={handleChange} className="h-4 w-4 text-primary" />
-                  <span className="text-sm">Outside Dhaka — 120 taka</span>
-                </label>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+                {[
+                  { value: 'Inside Dhaka', charge: 80 },
+                  { value: 'Outside Dhaka', charge: 120 },
+                ].map((area) => {
+                  const checked = form.shippingArea === area.value;
+                  return (
+                    <label
+                      key={area.value}
+                      className={`group relative flex flex-1 cursor-pointer items-center gap-3 overflow-hidden rounded-xl border p-4 transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] hover:shadow-md has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40 ${
+                        checked
+                          ? 'border-primary bg-white shadow-md ring-1 ring-primary/10 dark:bg-dark-card'
+                          : 'border-border bg-white/60 hover:border-primary/50 hover:bg-white dark:border-dark-border dark:bg-dark-card/60 dark:hover:bg-dark-card'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="shippingArea"
+                        value={area.value}
+                        checked={checked}
+                        onChange={handleChange}
+                        className="sr-only"
+                      />
+                      {/* Custom Radio Outer Ring */}
+                      <span
+                        className={`relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[2.5px] transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${
+                          checked
+                            ? 'border-primary scale-100'
+                            : 'border-on-surface/25 dark:border-dark-border scale-100 group-hover:border-primary/50'
+                        }`}
+                      >
+                        {/* Inner Dot */}
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                            checked
+                              ? 'bg-primary scale-100'
+                              : 'bg-transparent scale-0'
+                          }`}
+                        />
+                        {/* Glow Effect when checked */}
+                        {checked && (
+                          <span className="absolute inset-0 animate-ping rounded-full bg-primary/20 duration-75" />
+                        )}
+                      </span>
+                      {/* Text Section */}
+                      <span className={`flex-1 text-sm font-medium transition-colors duration-300 ${
+                        checked ? 'text-on-surface dark:text-dark-text' : 'text-on-surface/70 dark:text-dark-text/70 group-hover:text-on-surface dark:group-hover:text-dark-text'
+                      }`}>
+                        {area.value}
+                      </span>
+                      {/* Price Badge */}
+                      <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${
+                        checked
+                          ? 'bg-primary/10 text-primary scale-100'
+                          : 'bg-on-surface/5 text-muted dark:bg-dark-surface dark:text-dark-muted scale-95 group-hover:scale-100'
+                      }`}>
+                        {area.charge}৳
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
           </div>
         </div>
 
-        <aside className="mt-6 rounded-2xl border border-border bg-white shadow-ambient lg:mt-0 dark:border-dark-border dark:bg-dark-card">
+        <aside className="sticky top-6 mt-6 flex flex-col rounded-2xl border border-border bg-white shadow-ambient lg:mt-0 dark:border-dark-border dark:bg-dark-card">
           <div className="border-b border-border px-4 py-3 sm:px-6 sm:py-4 dark:border-dark-border">
             <h2 className="text-sm font-semibold text-on-surface dark:text-dark-text">Order Summary</h2>
           </div>
-          <div className="divide-y divide-border dark:divide-dark-border">
+          <div className="flex-1 divide-y divide-border dark:divide-dark-border">
             {cart.map((item, i) => (
               <div key={i} className="flex items-start gap-3 px-4 py-3 sm:px-6 sm:py-4">
                 {item.image ? (
@@ -252,7 +368,7 @@ export default function CheckoutPage() {
                   <p className="text-sm font-semibold text-primary whitespace-nowrap dark:text-primary">৳ {(Number(item.price ?? 0) * item.quantity).toLocaleString()}</p>
                   </div>
                 </div>
-                
+
               </div>
             ))}
           </div>

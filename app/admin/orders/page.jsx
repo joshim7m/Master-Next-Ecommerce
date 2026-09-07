@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, Fragment } from 'react';
 import Link from 'next/link';
 import { getOrders, updateOrderStatus } from '../../../src/actions/orders';
 
-const orderStatuses = ['pending', 'processing', 'completed', 'cancelled', 'return'];
+const orderStatuses = ['pending', 'processing', 'completed', 'cancelled', 'return', 'incomplete'];
 
 const orderStatusColors = {
   pending: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -12,6 +12,7 @@ const orderStatusColors = {
   completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   cancelled: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   return: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  incomplete: 'bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300',
 };
 
 const orderStatusDotColors = {
@@ -20,6 +21,7 @@ const orderStatusDotColors = {
   completed: 'bg-emerald-500',
   cancelled: 'bg-red-500',
   return: 'bg-purple-500',
+  incomplete: 'bg-slate-400',
 };
 
 function ItemsSection({ items }) {

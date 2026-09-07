@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../src/lib/prisma';
 import { sendOrderAlert } from '../../../src/lib/telegram';
+import { deleteIncompleteOrders } from '../../../src/lib/incompleteCheckout';
 
 export async function POST(request) {
   const body = await request.json();
-  const { name, mobile, address, shippingArea, items, deviceHash } = body;
+  const { name, mobile, address, shippingArea, items, deviceHash, draftOrderNo } = body;
 
   const ipAddress =
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -82,6 +83,16 @@ export async function POST(request) {
       },
     },
   });
+
+  const cleanupWhere = {
+    OR: [
+      ...(draftOrderNo ? [{ orderNo: String(draftOrderNo) }] : []),
+      ...(deviceHash ? [{ details: { deviceHash, phoneNumber: mobile?.trim() } }] : []),
+    ],
+  };
+  deleteIncompleteOrders(prisma, cleanupWhere).catch((err) =>
+    console.error('[checkout] draft cleanup error:', err)
+  );
 
   sendOrderAlert({
     orderNo: order.orderNo,

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '../lib/prisma';
+import { deleteIncompleteOrders } from '../lib/incompleteCheckout';
 
 function serialize(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -20,8 +21,11 @@ export async function getDashboardStats() {
   const [productCount, categoryCount, orderCount, revenueResult] = await Promise.all([
     prisma.product.count(),
     prisma.category.count(),
-    prisma.order.count(),
-    prisma.order.aggregate({ _sum: { total: true }, where: { orderStatus: { not: 'cancelled' } } }),
+    prisma.order.count({ where: { orderStatus: { not: 'incomplete' } } }),
+    prisma.order.aggregate({
+      _sum: { total: true },
+      where: { orderStatus: { notIn: ['cancelled', 'incomplete'] } },
+    }),
   ]);
   return serialize({
     products: productCount,
@@ -45,6 +49,27 @@ export async function getOrderByOrderNo(orderNo) {
     include: { details: true, items: true, user: true },
   });
   return serialize(order);
+}
+
+export async function getIncompleteOrders() {
+  const orders = await prisma.order.findMany({
+    where: { orderStatus: 'incomplete' },
+    include: { details: true, items: true },
+    orderBy: { updatedAt: 'desc' },
+  });
+  return serialize(orders);
+}
+
+export async function deleteIncompleteOrder(id) {
+  const order = await prisma.order.findFirst({
+    where: { id, orderStatus: 'incomplete' },
+  });
+  if (!order) throw new Error('Incomplete order not found');
+  const deleted = await prisma.$transaction(async (tx) => {
+    return deleteIncompleteOrders(tx, { id });
+  });
+  revalidatePath('/admin/incomplete-orders');
+  return deleted;
 }
 
 export async function updateOrderStatus(id, data) {

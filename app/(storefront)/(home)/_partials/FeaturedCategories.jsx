@@ -1,166 +1,125 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import Link from 'next/link';
-
-function chunk(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Grid, Pagination } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/grid';
+import 'swiper/css/pagination';
 
 function CategoryTile({ cat }) {
   const hasImage = Boolean(cat.image);
-  const count = cat._count?.products;
+  const count = cat.count;
 
   return (
     <Link
       href={`/categories/${cat.slug}`}
       title={cat.name}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-white shadow-ambient transition-all duration-300 hover:-translate-y-1 hover:shadow-ambient-lg dark:border-dark-border dark:bg-dark-card"
+      className="image-hover-zoom group flex h-full w-full cursor-pointer flex-col items-center py-1"
     >
-      <div className="image-hover-zoom relative aspect-square w-full overflow-hidden bg-warm-sand dark:bg-dark-card">
+      {/* Circular image container — same hover as TrendingCard product card */}
+      <div className="mb-3 h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-white bg-white shadow-md transition-all duration-300 ease-out ring-offset-[#eff6ff] group-hover:-translate-y-1.5 group-hover:border-primary/40 group-hover:shadow-lg group-hover:shadow-primary/10 group-hover:ring-2 group-hover:ring-primary group-hover:ring-offset-2 md:h-28 md:w-28 dark:border-dark-border dark:bg-dark-card dark:group-hover:border-primary/40 dark:ring-offset-dark-bg">
         {hasImage ? (
           <img
             src={cat.image}
             alt={cat.name}
             loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+            className="h-full w-full object-cover"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-warm-sand to-soft-blush dark:from-dark-card dark:to-dark-bg">
-            <span className="text-3xl font-bold text-muted/40 dark:text-dark-muted/40">{cat.name.charAt(0)}</span>
+            <span className="text-2xl font-bold text-muted/40 dark:text-dark-muted/40">
+              {cat.name.charAt(0)}
+            </span>
           </div>
         )}
       </div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-1 p-2 text-center sm:p-3">
-        <h3 className="line-clamp-2 text-xs font-semibold text-on-surface transition-colors group-hover:text-primary dark:text-dark-text dark:group-hover:text-primary">
-          {cat.name}
-        </h3>
-        {typeof count === 'number' && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-primary">
-            {count} items
-          </span>
-        )}
-      </div>
+
+      {/* Title */}
+      <span className="line-clamp-2 text-center text-sm font-semibold leading-snug text-on-surface transition-colors group-hover:text-primary md:text-base dark:text-dark-text dark:group-hover:text-primary">
+        {cat.name}
+      </span>
+
+      {/* Product count */}
+      {typeof count === 'number' && count > 0 && (
+        <span className="mt-1 text-xs text-muted dark:text-dark-muted">
+          {count} Items
+        </span>
+      )}
     </Link>
   );
 }
 
-function PaginationDots({ count, active, onSelect }) {
-  if (count <= 1) return null;
+function ArrowButton({ dir, onClick }) {
   return (
-    <div className="mt-4 flex items-center justify-center gap-1.5">
-      {Array.from({ length: count }, (_, i) => (
-        <button
-          key={i}
-          type="button"
-          onClick={() => onSelect(i)}
-          aria-label={`Go to slide ${i + 1}`}
-          className={`h-1.5 rounded-full transition-all duration-300 ${
-            i === active ? 'w-6 bg-primary' : 'w-1.5 bg-border hover:bg-primary/40 dark:bg-dark-border'
-          }`}
-        />
-      ))}
-    </div>
-  );
-}
-
-export default function FeaturedCategories({ categories = [] }) {
-  const mobileRef = useRef(null);
-  const desktopRef = useRef(null);
-  const [mobileActive, setMobileActive] = useState(0);
-  const [desktopActive, setDesktopActive] = useState(0);
-
-  if (!categories.length) return null;
-
-  const mobileSlides = chunk(categories, 6); // 3 cols x 2 rows
-  const desktopSlides = chunk(categories, 14); // 7 cols x 2 rows
-
-  const goTo = (ref, i) => {
-    const el = ref.current;
-    if (!el) return;
-    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
-  };
-
-  const onScroll = (ref, setActive) => () => {
-    const el = ref.current;
-    if (!el) return;
-    setActive(Math.round(el.scrollLeft / el.clientWidth));
-  };
-
-  const Arrow = ({ dir, onClick }) => (
     <button
       type="button"
       onClick={onClick}
       aria-label={dir === -1 ? 'Scroll left' : 'Scroll right'}
       className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-on-surface/70 transition hover:border-primary hover:text-primary active:scale-95 dark:border-dark-border dark:bg-dark-card dark:text-dark-text/70 dark:hover:text-primary"
     >
-      <span className="material-symbols-outlined text-[20px]">{dir === -1 ? 'chevron_left' : 'chevron_right'}</span>
+      <span className="material-symbols-outlined text-[20px]">
+        {dir === -1 ? 'chevron_left' : 'chevron_right'}
+      </span>
     </button>
   );
+}
+
+export default function FeaturedCategories({ categories = [] }) {
+  const swiperRef = useRef(null);
+
+  if (!categories.length) return null;
 
   return (
-    <section className="mx-auto max-w-[1440px] px-page-margin-mobile py-section-gap md:px-page-margin-desktop">
-      <div className="mb-stack-md flex items-end justify-between md:mb-stack-lg">
-        <div>
-          <h2 className="font-display text-headline-md font-bold text-on-surface md:text-headline-lg dark:text-dark-text">
-            Our Categories
-          </h2>
-          <p className="mt-1 text-sm text-muted dark:text-dark-muted">Shop by category</p>
+    <section className="bg-[#eff6ff] px-4 py-12 dark:bg-dark-card/30">
+      <div className="relative mx-auto max-w-7xl">
+        {/* Header */}
+        <h2 className="text-center font-display text-xl font-bold text-on-surface md:text-2xl dark:text-dark-text">
+          Our Categories
+        </h2>
+        <p className="mt-1 text-center text-sm text-muted dark:text-dark-muted">
+          Shop by category
+        </p>
+
+        {/* Desktop arrows */}
+        <div className="absolute right-0 top-1 hidden gap-2 md:flex">
+          <ArrowButton dir={-1} onClick={() => swiperRef.current?.slidePrev()} />
+          <ArrowButton dir={1} onClick={() => swiperRef.current?.slideNext()} />
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden gap-2 md:flex">
-            <Arrow dir={-1} onClick={() => goTo(desktopRef, Math.max(0, desktopActive - 1))} />
-            <Arrow dir={1} onClick={() => goTo(desktopRef, Math.min(desktopSlides.length - 1, desktopActive + 1))} />
-          </div>
-          <Link
-            href="/categories"
-            className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-primary transition hover:text-primary/80"
-          >
-            View All
-            <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-          </Link>
-        </div>
+
+        {/* Two-row circular categories: 3 per row on mobile, 6 per row on desktop */}
+        <Swiper
+          modules={[Grid, Pagination]}
+          onSwiper={(swiper) => {
+            swiperRef.current = swiper;
+          }}
+          grid={{ rows: 2, fill: 'row' }}
+          slidesPerView={3}
+          slidesPerGroup={3}
+          spaceBetween={20}
+          pagination={{ clickable: true }}
+          breakpoints={{
+            768: { slidesPerView: 6, slidesPerGroup: 6, spaceBetween: 24 },
+          }}
+          className="category-swiper mt-8"
+        >
+          {categories.map((cat) => (
+            <SwiperSlide key={cat.id}>
+              <CategoryTile cat={cat} />
+            </SwiperSlide>
+          ))}
+        </Swiper>
       </div>
 
-      {/* Mobile: 4 cols x 2 rows, swipe + pagination dots */}
-      <div className="md:hidden">
-        <div
-          ref={mobileRef}
-          onScroll={onScroll(mobileRef, setMobileActive)}
-          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
+      <div className="mt-10 text-center">
+        <Link
+          href="/categories"
+          className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-primary transition hover:text-primary/80"
         >
-          {mobileSlides.map((slide, i) => (
-            <div key={`m-${i}`} className="w-full shrink-0 snap-start">
-              <div className="grid grid-cols-3 gap-2">
-                {slide.map((cat) => (
-                  <CategoryTile key={cat.id} cat={cat} />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <PaginationDots count={mobileSlides.length} active={mobileActive} onSelect={(i) => goTo(mobileRef, i)} />
-      </div>
-
-      {/* Desktop: 8 cols x 2 rows, swipe + arrows */}
-      <div className="hidden md:block">
-        <div
-          ref={desktopRef}
-          onScroll={onScroll(desktopRef, setDesktopActive)}
-          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
-        >
-          {desktopSlides.map((slide, i) => (
-            <div key={`d-${i}`} className="w-full shrink-0 snap-start">
-              <div className="grid grid-cols-7 gap-5">
-                {slide.map((cat) => (
-                  <CategoryTile key={cat.id} cat={cat} />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+          View All
+          <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+        </Link>
       </div>
     </section>
   );

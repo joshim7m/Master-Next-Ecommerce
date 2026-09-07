@@ -66,8 +66,8 @@ export default function Hero({ images = [] }) {
 
           {/* Floating testimonial / trust badge */}
           <div className="absolute bottom-4 left-4 z-40 flex items-center gap-3 rounded-2xl border border-white/70 bg-white/85 px-4 py-3 shadow-lg backdrop-blur-md dark:border-dark-border dark:bg-dark-card/85">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#ae2f34]/10 dark:bg-[#ff6b6b]/20">
-              <svg className="h-5 w-5 text-[#ae2f34] dark:text-[#ff6b6b]" fill="currentColor" viewBox="0 0 20 20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0d9488]/10 dark:bg-[#818cf8]/20">
+              <svg className="h-5 w-5 text-[#0d9488] dark:text-[#818cf8]" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.958a1 1 0 00.95.69h4.162c.969 0 1.371 1.24.588 1.81l-3.368 2.447a1 1 0 00-.363 1.118l1.287 3.957c.3.922-.755 1.688-1.54 1.118l-3.366-2.446a1 1 0 00-1.175 0l-3.366 2.446c-.784.57-1.838-.196-1.539-1.118l1.286-3.957a1 1 0 00-.363-1.118L2.053 9.386c-.783-.57-.38-1.81.588-1.81h4.162a1 1 0 00.95-.69l1.286-3.958z" />
               </svg>
             </div>
@@ -78,7 +78,7 @@ export default function Hero({ images = [] }) {
           </div>
 
           {/* "New drops" pill */}
-          <div className="absolute -top-3 left-6 z-40 rounded-full bg-[#ae2f34] px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-white shadow-lg dark:bg-[#ff6b6b] dark:text-[#3b0000]">
+          <div className="absolute -top-3 left-6 z-40 rounded-full bg-[#0d9488] px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-white shadow-lg dark:bg-[#818cf8] dark:text-white">
             New Season
           </div>
         </div>
@@ -86,7 +86,7 @@ export default function Hero({ images = [] }) {
         {/* ===== Copy (right on desktop, below collage on mobile) ===== */}
         <div className="relative z-30 flex flex-col items-start gap-6 md:gap-7">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-white/70 px-4 py-1.5 dark:border-dark-border dark:bg-dark-card/60">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#ae2f34] dark:bg-[#ff6b6b]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[#0d9488] dark:bg-[#818cf8]" />
             <span className="text-xs font-semibold uppercase tracking-widest text-muted dark:text-dark-muted">
               New Season Collection
             </span>
@@ -94,7 +94,7 @@ export default function Hero({ images = [] }) {
 
           <h1 className="font-display text-4xl font-bold leading-[1.05] text-editorial-ink dark:text-dark-text md:text-5xl lg:text-6xl">
             Beautiful finds,{' '}
-            <span className="italic text-[#ae2f34] dark:text-[#ff6b6b]">made for you</span>
+            <span className="italic text-[#0d9488] dark:text-[#818cf8]">made for you</span>
           </h1>
 
           <p className="max-w-md text-base leading-relaxed text-muted dark:text-dark-muted md:text-lg">
@@ -105,7 +105,7 @@ export default function Hero({ images = [] }) {
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
             <Link
               href="#trending"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#ae2f34] px-7 py-3.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#8f2530] active:scale-95 dark:bg-[#ff6b6b] dark:text-[#3b0000] dark:hover:bg-[#ff8a8a]"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#0d9488] px-7 py-3.5 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:bg-[#0f766e] active:scale-95 dark:bg-[#818cf8] dark:text-white dark:hover:bg-[#a5b4fc]"
             >
               Shop Now
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -114,7 +114,7 @@ export default function Hero({ images = [] }) {
             </Link>
             <Link
               href="/categories"
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-white/80 px-7 py-3.5 text-sm font-semibold text-editorial-ink shadow-sm transition-all duration-300 hover:border-[#ae2f34]/40 hover:bg-[#ae2f34]/5 active:scale-95 dark:border-dark-border dark:bg-dark-card/80 dark:text-dark-text dark:hover:bg-dark-card"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-white/80 px-7 py-3.5 text-sm font-semibold text-editorial-ink shadow-sm transition-all duration-300 hover:border-[#0d9488]/40 hover:bg-[#0d9488]/5 active:scale-95 dark:border-dark-border dark:bg-dark-card/80 dark:text-dark-text dark:hover:bg-dark-card"
             >
               Explore Categories
             </Link>
@@ -127,7 +127,7 @@ export default function Hero({ images = [] }) {
               'Nationwide Fit Guarantee',
             ].map((item) => (
               <span key={item} className="inline-flex items-center gap-1.5 text-xs font-medium text-muted dark:text-dark-muted">
-                <svg className="h-4 w-4 text-[#ae2f34] dark:text-[#ff6b6b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-4 w-4 text-[#0d9488] dark:text-[#818cf8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 {item}

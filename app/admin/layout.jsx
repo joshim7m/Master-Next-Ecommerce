@@ -14,6 +14,7 @@ const pageTitles = {
   '/admin/products/edit': 'Edit Product',
   '/admin/orders': 'Orders',
   '/admin/orders/': 'Order Detail',
+  '/admin/incomplete-orders': 'Incomplete Orders',
   '/admin/settings/home': 'Home Setting',
   '/admin/settings/site': 'Site Setting',
   '/admin/settings/hero-sliders': 'Hero Sliders',

@@ -24,8 +24,8 @@ export default function Footer({ siteName, mobile, email, address, copyrightText
 
   return (
     <footer className="bg-editorial-ink text-white">
-      <div className="mx-auto max-w-[1440px] px-page-margin-mobile py-16 sm:px-6 lg:px-page-margin-desktop">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mx-auto max-w-[1440px] px-page-margin-mobile py-16 text-center sm:px-6 sm:text-left lg:px-page-margin-desktop">
+        <div className="grid gap-10 text-center sm:grid-cols-2 sm:text-left lg:grid-cols-4">
           {/* Brand column */}
           <div className="space-y-4">
             <h3 className="font-display text-xl font-bold">{brandName}</h3>
@@ -33,7 +33,7 @@ export default function Footer({ siteName, mobile, email, address, copyrightText
             <ul className="space-y-2 text-sm text-white/60">
               {mobile && (
                 <li>
-                  <a href={`tel:${mobile}`} className="flex items-center gap-2 transition hover:text-white">
+                  <a href={`tel:${mobile}`} className="inline-flex items-center gap-2 transition hover:text-white">
                     <span className="material-symbols-outlined text-[18px]">phone</span>
                     {mobile}
                   </a>
@@ -41,7 +41,7 @@ export default function Footer({ siteName, mobile, email, address, copyrightText
               )}
               {email && (
                 <li>
-                  <a href={`mailto:${email}`} className="flex items-center gap-2 transition hover:text-white">
+                  <a href={`mailto:${email}`} className="inline-flex items-center gap-2 transition hover:text-white">
                     <span className="material-symbols-outlined text-[18px]">mail</span>
                     {email}
                   </a>
@@ -77,7 +77,7 @@ export default function Footer({ siteName, mobile, email, address, copyrightText
             <p className="text-sm text-white/60">Subscribe for updates and exclusive offers.</p>
             <form
               onSubmit={(e) => { e.preventDefault(); setNewsletterEmail(''); }}
-              className="flex gap-2"
+              className="mx-auto flex max-w-sm gap-2 sm:mx-0"
             >
               <input
                 type="email"
@@ -94,7 +94,7 @@ export default function Footer({ siteName, mobile, email, address, copyrightText
               </button>
             </form>
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex justify-center gap-2 pt-2 sm:justify-start">
               {socialLinks?.filter((l) => l.isActive).map((link) => {
                 const platform = platforms[link.icon || ''];
                 return (

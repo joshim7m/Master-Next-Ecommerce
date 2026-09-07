@@ -83,12 +83,20 @@ export default function CartPage() {
                     <Link href={`/products/${item.productSlug}`} className="font-medium text-on-surface hover:text-primary transition dark:text-dark-text dark:hover:text-primary">
                       {item.title}
                     </Link>
-                    {item.sku ? (
-                      <p className="text-xs text-muted dark:text-dark-muted font-mono">SKU: {item.sku}</p>
-                    ) : null}
-                    {item.variantName ? (
-                      <p className="text-sm text-muted dark:text-dark-muted">{item.variantName}</p>
-                    ) : null}
+                    <div className='flex items-center gap-x-2'>
+                      <span>
+                        {item.sku ? (
+                          <p className="text-xs text-green-500">SKU: {item.sku}</p>
+                        ) : null}
+                      </span>
+                      <span className='text-muted'> | </span>
+                      <span>
+                        {item.variantName ? (
+                          <p className="text-xs text-orange-400">{item.variantName}</p>
+                        ) : null}
+                      </span>
+
+                    </div>
                     <div className="mt-3 flex items-center gap-3">
                       <button onClick={() => handleQuantity(index, -1)} className="h-8 w-8 rounded-full border border-border text-sm hover:border-primary/30 dark:border-slate-600 dark:hover:border-primary/30" disabled={item.quantity <= 1}>−</button>
                       <span className="w-6 text-center text-sm font-medium">{item.quantity}</span>
