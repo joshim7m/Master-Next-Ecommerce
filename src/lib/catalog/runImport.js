@@ -5,6 +5,7 @@ import { parse } from 'csv-parse';
 import ExcelJS from 'exceljs';
 import AdmZip from 'adm-zip';
 import prisma from '@/src/lib/prisma';
+import { getUploadPath } from '@/src/lib/storage';
 import { CHUNK_SIZE, VALID_PRODUCT_STATUSES } from './constants';
 import { sanitizeFilename, isRemotePath, fetchRemoteImage } from './images';
 
@@ -278,7 +279,7 @@ async function importProductImages(product, extractedDir, imagesColumn, rowNumbe
 
     const ext = path.extname(sanitizeFilename(name)) || '.jpg';
     const filename = `${product.id}-${index}${ext}`;
-    const target = path.join(process.cwd(), 'public', 'uploads', 'products', filename);
+    const target = getUploadPath('products', filename);
 
     try {
       await mkdir(path.dirname(target), { recursive: true });
@@ -296,7 +297,7 @@ async function importProductImages(product, extractedDir, imagesColumn, rowNumbe
       }
 
       await prisma.productImage.create({
-        data: { productId: product.id, image_path: `/uploads/products/${filename}` },
+        data: { productId: product.id, image_path: `/api/files/products/${filename}` },
       });
     } catch {
       errors.push({ row: rowNumber, message: `Image "${name}" could not be saved.` });

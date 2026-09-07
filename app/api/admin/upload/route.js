@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
+import { getUploadPath } from '../../../../src/lib/storage';
 
 const ALLOWED_TYPES = [
   'image/jpeg',
@@ -25,7 +26,10 @@ export async function POST(request) {
     return NextResponse.json({ error: 'No files provided.' }, { status: 400 });
   }
 
-  const uploadDir = path.join(process.cwd(), 'public/uploads', folder);
+  const uploadDir = getUploadPath(folder);
+  if (!uploadDir) {
+    return NextResponse.json({ error: 'Invalid folder.' }, { status: 400 });
+  }
   await mkdir(uploadDir, { recursive: true });
 
   for (const file of files) {
@@ -40,11 +44,12 @@ export async function POST(request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = path.extname(file.name) || '.png';
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+    const filename = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + (path.extname(file.name)
+      .toLowerCase()
+      .replace(/[^.a-z0-9]/g, '') || '.png');
     const filepath = path.join(uploadDir, filename);
     await writeFile(filepath, buffer);
-    uploaded.push(`/uploads/${folder}/${filename}`);
+    uploaded.push(`/api/files/${folder}/${filename}`);
   }
 
   if (uploaded.length === 0 && errors.length > 0) {
