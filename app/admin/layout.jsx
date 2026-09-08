@@ -15,6 +15,7 @@ const pageTitles = {
   '/admin/orders': 'Orders',
   '/admin/orders/': 'Order Detail',
   '/admin/incomplete-orders': 'Incomplete Orders',
+  '/admin/reports/sales': 'Sales Report',
   '/admin/settings/home': 'Home Setting',
   '/admin/settings/site': 'Site Setting',
   '/admin/settings/hero-sliders': 'Hero Sliders',

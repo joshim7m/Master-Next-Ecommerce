@@ -48,15 +48,25 @@ function Skeleton() {
   );
 }
 
-function InputField({ label, type = 'text', value, onChange, placeholder, hint }) {
+function InputField({ label, type = 'text', value, onChange, onBlur, placeholder, hint, error }) {
   const baseCls =
     'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-[#2f0f6b] focus:outline-none focus:ring-2 focus:ring-[#2f0f6b]/15 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]';
+  const errorCls =
+    'w-full rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 dark:border-red-500/60 dark:bg-slate-900 dark:text-white dark:focus:ring-red-500/30';
 
   return (
     <div>
       <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</label>
-      <input type={type} value={value} onChange={onChange} placeholder={placeholder} className={baseCls} />
+      <input type={type} value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder} aria-invalid={!!error} className={error ? errorCls : baseCls} />
       {hint && <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">{hint}</p>}
+      {error && (
+        <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
+          <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -75,10 +85,62 @@ function SectionCard({ title, description, children }) {
 
 export default function NotificationSettingsPage() {
   const [form, setForm] = useState({ telegramBotToken: '', telegramChatId: '', gtmId: '', whatsappNumber: '', siteUrl: '', jwtSecret: '' });
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [toast, setToast] = useState(null);
+
+  const validators = {
+    siteUrl: (v) => {
+      if (!v.trim()) return '';
+      let url;
+      try {
+        url = new URL(v.trim());
+      } catch {
+        return 'Enter a valid URL, e.g. https://radiantpicks.com';
+      }
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'URL must start with http:// or https://';
+      if (url.pathname.length > 1 && url.pathname.endsWith('/')) return 'Remove the trailing slash';
+      return '';
+    },
+    jwtSecret: (v) => {
+      if (!v) return '';
+      if (v.length < 32) return 'JWT secret must be at least 32 characters (e.g. run openssl rand -base64 32).';
+      if (/\s/.test(v)) return 'JWT secret must not contain spaces.';
+      return '';
+    },
+    telegramBotToken: (v) => {
+      if (!v.trim()) return '';
+      if (!/^\d+:[A-Za-z0-9_-]{30,}$/.test(v.trim())) return 'Invalid bot token. Expected format: 123456789:AA... from @BotFather.';
+      return '';
+    },
+    telegramChatId: (v) => {
+      if (!v.trim()) return '';
+      if (!/^-?\d+$/.test(v.trim())) return 'Chat ID must be a numeric id, e.g. 1234567890 (groups may start with -100).';
+      return '';
+    },
+    gtmId: (v) => {
+      if (!v.trim()) return '';
+      if (!/^GTM-[A-Za-z0-9]+$/.test(v.trim())) return 'GTM id must look like GTM-XXXXXXX.';
+      return '';
+    },
+    whatsappNumber: (v) => {
+      if (!v.trim()) return '';
+      if (!/^(?:\+?88)?01[3-9]\d{8}$/.test(v.trim())) return 'Enter a valid Bangladeshi mobile number, e.g. 01945090085 or +8801945090085.';
+      return '';
+    },
+  };
+
+  const updateField = (name, value) => {
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: validators[name](value) }));
+  };
+
+  const blurField = (name) => {
+    const msg = validators[name](form[name]);
+    setErrors((prev) => ({ ...prev, [name]: msg }));
+  };
 
   useEffect(() => {
     fetch('/api/admin/settings/site-config')
@@ -105,6 +167,16 @@ export default function NotificationSettingsPage() {
   }, [toast]);
 
   const handleSave = async () => {
+    const newErrors = {};
+    for (const [name, validate] of Object.entries(validators)) {
+      const msg = validate(form[name]);
+      if (msg) newErrors[name] = msg;
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setToast({ type: 'error', message: 'Please fix the highlighted fields before saving.' });
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch('/api/admin/settings/site-config', {
@@ -113,6 +185,7 @@ export default function NotificationSettingsPage() {
         body: JSON.stringify(form),
       });
       if (res.ok) {
+        setErrors({});
         setToast({ type: 'success', message: 'Settings saved successfully.' });
       } else {
         setToast({ type: 'error', message: 'Failed to save settings.' });
@@ -170,7 +243,9 @@ export default function NotificationSettingsPage() {
             label="Site URL (NEXT_PUBLIC_SITE_URL)"
             type="url"
             value={form.siteUrl}
-            onChange={(e) => setForm((prev) => ({ ...prev, siteUrl: e.target.value }))}
+            onChange={(e) => updateField('siteUrl', e.target.value)}
+            onBlur={() => blurField('siteUrl')}
+            error={errors.siteUrl}
             placeholder="https://radiantpicks.com"
             hint="Your production base URL, without a trailing slash. Used for canonical, OG, structured data, sitemap and robots. Leave blank to use the NEXT_PUBLIC_SITE_URL env variable."
           />
@@ -178,7 +253,9 @@ export default function NotificationSettingsPage() {
             label="JWT Secret (Admin Login)"
             type="password"
             value={form.jwtSecret}
-            onChange={(e) => setForm((prev) => ({ ...prev, jwtSecret: e.target.value }))}
+            onChange={(e) => updateField('jwtSecret', e.target.value)}
+            onBlur={() => blurField('jwtSecret')}
+            error={errors.jwtSecret}
             placeholder="A long random string, e.g. openssl rand -base64 32"
             hint="Signs the admin session cookie used at /admin/login. Changing it logs all admins out. Leave blank to use the JWT_SECRET env variable."
           />
@@ -192,14 +269,18 @@ export default function NotificationSettingsPage() {
             label="Bot Token"
             type="password"
             value={form.telegramBotToken}
-            onChange={(e) => setForm((prev) => ({ ...prev, telegramBotToken: e.target.value }))}
+            onChange={(e) => updateField('telegramBotToken', e.target.value)}
+            onBlur={() => blurField('telegramBotToken')}
+            error={errors.telegramBotToken}
             placeholder="123456789:AA..."
             hint="Get this from @BotFather when you create your bot."
           />
           <InputField
             label="Chat ID"
             value={form.telegramChatId}
-            onChange={(e) => setForm((prev) => ({ ...prev, telegramChatId: e.target.value }))}
+            onChange={(e) => updateField('telegramChatId', e.target.value)}
+            onBlur={() => blurField('telegramChatId')}
+            error={errors.telegramChatId}
             placeholder="1234567890"
             hint="Your Telegram user id, or the group/channel id. Message @userinfobot to find your id."
           />
@@ -232,7 +313,9 @@ export default function NotificationSettingsPage() {
           <InputField
             label="GTM Container ID"
             value={form.gtmId}
-            onChange={(e) => setForm((prev) => ({ ...prev, gtmId: e.target.value }))}
+            onChange={(e) => updateField('gtmId', e.target.value)}
+            onBlur={() => blurField('gtmId')}
+            error={errors.gtmId}
             placeholder="GTM-XXXXXXX"
             hint="Found in the GTM dashboard when you set up your container."
           />
@@ -242,9 +325,11 @@ export default function NotificationSettingsPage() {
           <InputField
             label="WhatsApp Number"
             value={form.whatsappNumber}
-            onChange={(e) => setForm((prev) => ({ ...prev, whatsappNumber: e.target.value }))}
-            placeholder="8801XXXXXXXXX"
-            hint="Include country code without + sign, e.g. 8801945090085"
+            onChange={(e) => updateField('whatsappNumber', e.target.value)}
+            onBlur={() => blurField('whatsappNumber')}
+            error={errors.whatsappNumber}
+            placeholder="+8801XXXXXXXXX"
+            hint="Bangladeshi mobile number with or without +88 country code, e.g. 01945090085 or +8801945090085"
           />
         </SectionCard>
 

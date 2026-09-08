@@ -14,6 +14,7 @@ const iconColors = {
   sliders: { bg: 'bg-purple-100', text: 'text-purple-600', darkBg: 'dark:bg-purple-900/30', darkText: 'dark:text-purple-400' },
   social: { bg: 'bg-rose-100', text: 'text-rose-600', darkBg: 'dark:bg-rose-900/30', darkText: 'dark:text-rose-400' },
   notifications: { bg: 'bg-teal-100', text: 'text-teal-600', darkBg: 'dark:bg-teal-900/30', darkText: 'dark:text-teal-400' },
+  reports: { bg: 'bg-fuchsia-100', text: 'text-fuchsia-600', darkBg: 'dark:bg-fuchsia-900/30', darkText: 'dark:text-fuchsia-400' },
   database: { bg: 'bg-cyan-100', text: 'text-cyan-600', darkBg: 'dark:bg-cyan-900/30', darkText: 'dark:text-cyan-400' },
   transfer: { bg: 'bg-violet-100', text: 'text-violet-600', darkBg: 'dark:bg-violet-900/30', darkText: 'dark:text-violet-400' },
 };
@@ -39,6 +40,10 @@ const settingsSubItems = [
   { label: 'Social Media', href: '/admin/settings/social', icon: 'social' },
   { label: 'Catalog I/O', href: '/admin/settings/catalog-import-export', icon: 'transfer' },
   { label: 'Backup DB', href: '/admin/settings/backup-db', icon: 'database' },
+];
+
+const reportsSubItems = [
+  { label: 'Sales Report', href: '/admin/reports/sales', icon: 'reports' },
 ];
 
 function NavIcon({ icon }) {
@@ -115,6 +120,12 @@ function NavIcon({ icon }) {
       return (
         <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+      );
+    case 'reports':
+      return (
+        <svg className={cls} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
         </svg>
       );
     default:
@@ -200,6 +211,17 @@ export default function AdminSidebar({ sidebarOpen, onClose, pathname, onLogout,
           </div>
 
           {blogSubItems.map((item) => (
+            <NavLink key={item.href} item={item} pathname={pathname} onClose={onClose} />
+          ))}
+
+          <div className="my-3 border-t border-slate-100 dark:border-slate-800" />
+
+          <div className="mb-1.5 flex items-center gap-2 px-3">
+            <div className="h-1 w-1 rounded-full bg-fuchsia-400" />
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Reports</p>
+          </div>
+
+          {reportsSubItems.map((item) => (
             <NavLink key={item.href} item={item} pathname={pathname} onClose={onClose} />
           ))}
 

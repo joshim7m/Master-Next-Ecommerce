@@ -43,6 +43,15 @@ export async function getOrders() {
   return serialize(orders);
 }
 
+export async function getOrderReport(fromISO, toISO) {
+  const orders = await prisma.order.findMany({
+    where: { createdAt: { gte: new Date(fromISO), lte: new Date(toISO) } },
+    include: { details: true, items: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  return serialize(orders);
+}
+
 export async function getOrderByOrderNo(orderNo) {
   const order = await prisma.order.findUnique({
     where: { orderNo },
