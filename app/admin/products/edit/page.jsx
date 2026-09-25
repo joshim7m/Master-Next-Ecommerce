@@ -9,7 +9,7 @@ import VariantGenerator from './partials/variant-generator';
 import ManageVariant from './partials/manage-variant';
 
 const emptyForm = {
-  title: '', slug: '', description: '', metaDescription: '', tags: '', unite_price: '', sale_price: '', sku: '',
+  title: '', slug: '', description: '', specification: '', metaDescription: '', tags: '', unite_price: '', sale_price: '', sku: '', videoUrl: '',
   quantity: '', status: 'draft', featured: false,
 };
 
@@ -52,8 +52,10 @@ function EditProductForm() {
         title: product.title,
         slug: product.slug,
         description: product.description || '',
+        specification: product.specification || '',
         metaDescription: product.metaDescription || '',
         tags: product.tags || '',
+        videoUrl: product.videoUrl || '',
         unite_price: product.unite_price.toString(),
         sale_price: product.sale_price?.toString() || '',
         sku: product.sku?.toString() || '',

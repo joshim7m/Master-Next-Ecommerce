@@ -5,9 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getCategories, createProduct } from '../../../../src/actions/products';
 import CategoryMultiSelect from '../../../../src/components/admin/CategoryMultiSelect';
+import TipTapEditor from '../../../../src/components/admin/TipTapEditor';
+import RichEditorSection from '../../../../src/components/admin/RichEditorSection';
 
 const emptyForm = {
-  title: '', slug: '', description: '', metaDescription: '', tags: '', unite_price: '', sale_price: '', sku: '',
+  title: '', slug: '', description: '', specification: '', metaDescription: '', tags: '', unite_price: '', sale_price: '', sku: '', videoUrl: '',
   quantity: '', status: 'draft', featured: false,
 };
 
@@ -107,8 +109,26 @@ export default function CreateProductPage() {
             </div>
           </div>
           <div className="sm:col-span-2">
-            <label className={labelCls}>Description</label>
-            <textarea name="description" value={form.description} onChange={handleChange} rows={2} className={inputCls} />
+            <label className={labelCls}>Description &amp; Specifications</label>
+            <div className="mt-1.5 space-y-3">
+              <RichEditorSection id="description" label="Description" content={form.description}>
+                <TipTapEditor
+                  content={form.description}
+                  onChange={(html) => setForm((prev) => ({ ...prev, description: html }))}
+                />
+              </RichEditorSection>
+
+              <RichEditorSection id="specification" label="Specifications" content={form.specification}>
+                <TipTapEditor
+                  content={form.specification}
+                  onChange={(html) => setForm((prev) => ({ ...prev, specification: html }))}
+                />
+              </RichEditorSection>
+            </div>
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelCls}>YouTube Video URL <span className="text-slate-400 normal-case">(optional — shown as a slide in the product gallery)</span></label>
+            <input name="videoUrl" type="url" value={form.videoUrl || ''} onChange={handleChange} className={inputCls} placeholder="https://www.youtube.com/watch?v=…" />
           </div>
           <div className="sm:col-span-2">
             <label className={labelCls}>Meta Description <span className="text-slate-400 normal-case">(SEO — max 160 chars)</span></label>

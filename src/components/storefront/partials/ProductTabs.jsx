@@ -14,16 +14,25 @@ export default function ProductTabs({ product, selectedVariant }) {
 
   const tabs = {
     Description: (
-      <div className="prose prose-sm max-w-none text-on-surface/70 dark:text-dark-text/70">
+      <div className="prose prose-sm max-w-none text-on-surface/70 dark:text-dark-text/70 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_p]:mb-3 [&_h1,_&_h2,_&_h3]:text-on-surface dark:[&_h1]:text-dark-text dark:[&_h2]:text-dark-text dark:[&_h3]:text-dark-text">
         {product.description ? (
-          <p className="overflow-x-hidden">{product.description}</p>
+          <div
+            className="overflow-x-hidden"
+            dangerouslySetInnerHTML={{ __html: product.description }}
+          />
         ) : (
           <p className="italic text-muted dark:text-dark-muted">No description available.</p>
         )}
       </div>
     ),
     Specifications: (
-      <div className="space-y-3 text-sm">
+      <div className="space-y-4 text-sm">
+        {product.specification ? (
+          <div
+            className="prose prose-sm max-w-none overflow-x-hidden text-on-surface/70 dark:text-dark-text/70 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_p]:mb-2"
+            dangerouslySetInnerHTML={{ __html: product.specification }}
+          />
+        ) : null}
         {selectedVariant?.sku && (
           <div className="flex items-center justify-between border-b border-border/50 pb-2 dark:border-dark-border/50">
             <span className="text-muted dark:text-dark-muted">SKU</span>

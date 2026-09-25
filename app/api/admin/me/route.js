@@ -9,7 +9,7 @@ export async function GET(request) {
     }
 
     const payload = await verifyToken(token);
-    if (!payload || payload.role !== 'admin') {
+    if (!payload || !['super-admin', 'admin', 'manager'].includes(payload.role)) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 401 });
     }
 

@@ -3,10 +3,7 @@
 import { useRef } from 'react';
 import Link from 'next/link';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Grid, Pagination } from 'swiper/modules';
 import 'swiper/css';
-import 'swiper/css/grid';
-import 'swiper/css/pagination';
 
 function CategoryTile({ cat }) {
   const hasImage = Boolean(cat.image);
@@ -37,7 +34,7 @@ function CategoryTile({ cat }) {
       </div>
 
       {/* Title */}
-      <span className="line-clamp-2 text-center text-sm font-semibold leading-snug text-on-surface transition-colors group-hover:text-primary md:text-base dark:text-dark-text dark:group-hover:text-primary">
+      <span className="line-clamp-2 text-center text-xs font-semibold leading-snug text-on-surface transition-colors group-hover:text-primary md:text-sm dark:text-dark-text dark:group-hover:text-primary">
         {cat.name}
       </span>
 
@@ -74,50 +71,50 @@ export default function FeaturedCategories({ categories = [] }) {
   return (
     <section className="bg-[#eff6ff] px-4 py-12 dark:bg-dark-card/30">
       <div className="relative mx-auto max-w-7xl">
-        {/* Header */}
-        <h2 className="text-center font-display text-xl font-bold text-on-surface md:text-2xl dark:text-dark-text">
-          Our Categories
-        </h2>
-        <p className="mt-1 text-center text-sm text-muted dark:text-dark-muted">
-          Shop by category
-        </p>
+        {/* Header with View All */}
+        <div className="flex flex-col items-center gap-1 sm:relative">
+          <h2 className="text-center font-display text-xl font-bold text-on-surface md:text-2xl dark:text-dark-text">
+            Our Categories
+          </h2>
+          <p className="text-center text-sm text-muted dark:text-dark-muted">
+            Shop by category
+          </p>
 
-        {/* Desktop arrows */}
-        <div className="absolute right-0 top-1 hidden gap-2 md:flex">
-          <ArrowButton dir={-1} onClick={() => swiperRef.current?.slidePrev()} />
-          <ArrowButton dir={1} onClick={() => swiperRef.current?.slideNext()} />
+          {/* Desktop arrows */}
+          <div className="absolute right-0 top-1/2 hidden -translate-y-1/2 gap-2 md:flex">
+            <ArrowButton dir={-1} onClick={() => swiperRef.current?.slidePrev()} />
+            <ArrowButton dir={1} onClick={() => swiperRef.current?.slideNext()} />
+          </div>
         </div>
 
-        {/* Two-row circular categories: 3 per row on mobile, 6 per row on desktop */}
+        {/* Single-row circular categories slider */}
         <Swiper
-          modules={[Grid, Pagination]}
           onSwiper={(swiper) => {
             swiperRef.current = swiper;
           }}
-          grid={{ rows: 2, fill: 'row' }}
           slidesPerView={3}
-          slidesPerGroup={3}
-          spaceBetween={20}
-          pagination={{ clickable: true }}
+          spaceBetween={30}
           breakpoints={{
-            768: { slidesPerView: 6, slidesPerGroup: 6, spaceBetween: 24 },
+            480: { slidesPerView: 4, spaceBetween: 20 },
+            640: { slidesPerView: 6, spaceBetween: 24 },
+            768: { slidesPerView: 6, spaceBetween: 32 },
           }}
-          className="category-swiper mt-8"
+          className="category-swiper mt-8 !px-1 !pb-4"
         >
           {categories.map((cat) => (
-            <SwiperSlide key={cat.id}>
+            <SwiperSlide key={cat.id} className="!h-auto">
               <CategoryTile cat={cat} />
             </SwiperSlide>
           ))}
         </Swiper>
       </div>
 
-      <div className="mt-10 text-center">
+      <div className="mt-6 text-center">
         <Link
           href="/categories"
           className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-primary transition hover:text-primary/80"
         >
-          View All
+          View All Categories
           <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
         </Link>
       </div>

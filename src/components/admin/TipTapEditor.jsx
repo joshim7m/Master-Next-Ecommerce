@@ -26,7 +26,7 @@ function Divider() {
 export default function TipTapEditor({ content, onChange }) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ link: false, underline: false }),
       Underline,
       Link.configure({ openOnClick: false }),
       Image.configure({ inline: false }),

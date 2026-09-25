@@ -35,11 +35,11 @@ module.exports = {
         border: '#e5e7eb',
         ring: '#0d9488',
         dark: {
-          bg: '#0f172a',
-          card: '#1e293b',
-          border: '#334155',
-          text: '#e2e8f0',
-          muted: '#94a3b8',
+          bg: '#151021',
+          card: '#221A33',
+          border: '#383052',
+          text: '#EDE9F7',
+          muted: '#9D97B5',
         },
       },
       fontFamily: {

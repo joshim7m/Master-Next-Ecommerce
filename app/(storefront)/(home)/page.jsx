@@ -56,7 +56,7 @@ export default async function HomePage({ searchParams }) {
   const params = await searchParams;
   const categorySlug = params.category || null;
 
-  const [settings, categories, heroProducts, trendingProducts] = await Promise.all([
+  const [settings, categories, heroProducts, trendingProducts, heroSlides, promoBanner] = await Promise.all([
     getSiteSettings(),
     prisma.category.findMany({
       include: { _count: { select: { products: true } }, children: { include: { _count: { select: { products: true } } } } },
@@ -73,16 +73,20 @@ export default async function HomePage({ searchParams }) {
       orderBy: { createdAt: 'desc' },
       take: 12,
     }),
+    prisma.heroSlider.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } }),
+    prisma.promoBanner.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'asc' } }),
   ]);
 
-  const parentCats = categories.filter((c) => !c.parentId);
-  const allCats = categories.map((c) => ({
-    id: c.id,
-    name: c.name,
-    slug: c.slug,
-    image: c.image,
-    count: c._count?.products || 0,
-  }));
+  // Top-level categories only (no parent) — includes children count
+  const parentCats = categories
+    .filter((c) => !c.parentId)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      slug: c.slug,
+      image: c.image,
+      count: c._count?.products || 0,
+    }));
 
   // Pick 3 random categories with real images for the promo banner
   const catsWithImages = categories.filter(
@@ -91,13 +95,24 @@ export default async function HomePage({ searchParams }) {
   const shuffledCats = [...catsWithImages].sort(() => 0.5 - Math.random());
   const promoCats = shuffledCats.slice(0, 3).map((c) => ({ id: c.id, name: c.name, slug: c.slug, image: c.image }));
 
-  // Pick 4 random product images for the hero collage
-  const shuffled = heroProducts.sort(() => 0.5 - Math.random());
-  const heroImages = shuffled.slice(0, 4).map((p) => ({
-    src: p.images?.[0]?.image_path || '',
-    alt: p.title,
-    link: `/products/${p.slug}`,
+  // Hero slides — from admin settings; fall back to product collage images
+  const heroSlideData = heroSlides.map((s) => ({
+    title: s.title || '',
+    subtitle: s.subtitle || '',
+    buttonText: s.buttonText || 'Shop Now',
+    buttonLink: s.buttonLink || '#trending',
+    image: s.image || '',
   }));
+  if (heroSlideData.length === 0) {
+    const shuffled = heroProducts.sort(() => 0.5 - Math.random());
+    heroSlideData.push(...shuffled.slice(0, 4).map((p) => ({
+      title: '',
+      subtitle: '',
+      buttonText: 'Shop Now',
+      buttonLink: `/products/${p.slug}`,
+      image: p.images?.[0]?.image_path || '',
+    })));
+  }
   const trendingSerialized = JSON.parse(JSON.stringify(trendingProducts));
 
   const siteUrl = siteUrlOf(settings);
@@ -121,17 +136,17 @@ export default async function HomePage({ searchParams }) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
       />
 
-      {/* Hero — editorial collage */}
-      <Hero images={heroImages} />
+      {/* Hero — DB-driven slider from admin hero sliders */}
+      <Hero slides={heroSlideData} />
 
       {/* Featured Categories — carousel grid, 2 rows */}
-      <FeaturedCategories categories={allCats} />
+      <FeaturedCategories categories={parentCats} />
 
       {/* Trending Now — 6-col product grid, 2 rows */}
       <TrendingNow products={trendingSerialized} />
 
-      {/* Promo Banner — split layout */}
-      <PromoBanner categories={promoCats} />
+      {/* Promo Banner — split layout, from admin settings */}
+      <PromoBanner banner={promoBanner} categories={promoCats} />
     </>
   );
 }

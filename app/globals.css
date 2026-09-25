@@ -26,16 +26,16 @@
   --primary: #818cf8;
   --secondary: #ba9ffd;
   --editorial-ink: #e2e8f0;
-  --warm-sand: #0f172a;
-  --surface: #1e293b;
-  --on-surface: #e2e8f0;
-  --on-background: #e2e8f0;
+  --warm-sand: #151021;
+  --surface: #221a33;
+  --on-surface: #ede9f7;
+  --on-background: #ede9f7;
   --primary-container: #4f46e5;
   --secondary-container: #684fa6;
   --on-primary: #ffffff;
-  --on-secondary: #22005d;
-  --muted: #94a3b8;
-  --border: #334155;
+  --on-secondary: #151021;
+  --muted: #9d97b5;
+  --border: #383052;
   --ring: #818cf8;
 }
 
@@ -89,6 +89,15 @@ button, input, select, textarea {
 
 .animate-fade-in {
   animation: fade-in 0.4s ease-out both;
+}
+
+@keyframes hero-in {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-hero-in {
+  animation: hero-in 0.7s ease-out both;
 }
 
 .animate-blur-in {

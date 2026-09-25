@@ -59,7 +59,6 @@ export default function CartPage() {
     <section className="mx-auto max-w-[1440px] px-page-margin-mobile sm:px-6 lg:px-page-margin-desktop py-12">
       <div className="mx-auto max-w-3xl">
         <h1 className="text-3xl font-bold text-on-surface dark:text-dark-text">Your Cart</h1>
-        <p className="mt-2 text-muted dark:text-slate-300">Review the selected items before checkout.</p>
 
         {cart.length === 0 ? (
           <div className="mt-8 rounded-xl border border-border bg-white p-10 text-center shadow-sm dark:border-dark-border dark:bg-dark-card">
@@ -122,7 +121,7 @@ export default function CartPage() {
               href="/checkout"
               className="inline-flex rounded-xl bg-primary px-6 py-4 text-white hover:bg-primary/90 transition dark:bg-primary dark:text-dark-text"
             >
-              Proceed to Checkout
+              চেকআউটে যান
             </Link>
           </div>
         )}

@@ -19,7 +19,7 @@ export default function ProductDetailClient({ product, related, whatsappNumber }
   return (
     <>
       <div className="grid items-start gap-6 lg:grid-cols-[1.35fr_0.85fr]">
-        <ImageGallery images={product.images} title={product.title} variantImageIndex={variantImageIndex} />
+          <ImageGallery images={product.images} title={product.title} variantImageIndex={variantImageIndex} videoUrl={product.videoUrl} />
         <div className="lg:sticky lg:top-28">
           <ProductInfo
             product={product}

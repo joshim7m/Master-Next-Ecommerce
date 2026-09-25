@@ -161,27 +161,44 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
       <AnnouncementBar text={announcementText} />
 
       <div
-        className={`border-b transition-all duration-200 ${
+        className={`relative transition-all duration-200 ${
           scrolled
-            ? 'border-border bg-gradient-to-r from-white via-soft-blush to-[#f0eaff]/90 shadow-ambient backdrop-blur-md dark:border-dark-border dark:from-[#0f172a]/90 dark:via-[#161c31]/90 dark:to-[#1b1430]/90'
-            : 'border-transparent bg-gradient-to-r from-white via-soft-blush to-[#f0eaff] dark:from-[#0f172a] dark:via-[#161c31] dark:to-[#1b1430]'
+            ? 'border-b border-[#e9e2fa] bg-[#f7f3ff]/90 shadow-ambient backdrop-blur-md dark:border-dark-border/70 dark:bg-[#151021]/90'
+            : 'border-b border-[#e9e2fa] bg-[#f7f3ff] dark:border-dark-border dark:bg-[#151021]'
         }`}
       >
-        <div className="relative mx-auto flex h-14 max-w-[1440px] items-center justify-between px-page-margin-mobile lg:h-16 lg:px-page-margin-desktop">
-          {/* Left: Desktop nav links */}
-          <nav className="hidden items-center gap-7 lg:flex" aria-label="Main navigation">
+        {/* subtle hairline accent */}
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-primary/50 via-secondary/50 to-primary/30" />
+        <div className="relative mx-auto flex h-14 max-w-[1440px] items-center gap-6 px-page-margin-mobile lg:h-16 lg:gap-8 lg:px-page-margin-desktop">
+          {/* Left: Brand */}
+          <Link
+            href="/"
+            className="hidden h-12 shrink-0 items-center justify-center lg:flex"
+            aria-label={siteName || DEFAULT_BRAND}
+          >
+            {logo ? (
+              <img src={logo} alt={siteName || DEFAULT_BRAND} className="block h-full max-w-[220px] object-contain" />
+            ) : (
+              <span className="font-display text-xl font-bold tracking-tight text-editorial-ink dark:text-white lg:text-2xl">
+                {siteName || DEFAULT_BRAND}
+              </span>
+            )}
+          </Link>
+
+          {/* Desktop nav links — adjacent to the logo */}
+          <nav className="hidden items-center gap-3 lg:flex" aria-label="Main navigation">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="group relative font-label-caps text-[0.72rem] tracking-[0.1em] text-on-surface/70 transition hover:text-primary dark:text-dark-text/70 dark:hover:text-primary"
+                className="group relative rounded-full px-3 py-2 font-label-caps text-[0.72rem] tracking-[0.1em] text-on-surface/70 transition hover:bg-white/80 hover:text-primary dark:text-dark-text/70 dark:hover:bg-white/5 dark:hover:text-primary"
               >
                 <span className="relative flex items-center gap-0.5">
                   {link.label}
                   {link.href === '/hot-sales' && (
                     <span className="absolute -right-4 -top-2.5 flex h-5 w-5 items-center justify-center">
                       <span className="fire-ping absolute inset-0 rounded-full bg-orange-500/50" />
-                      <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 shadow-[0_0_10px_rgba(249,115,22,0.7)] ring-2 ring-white dark:ring-[#0f172a]">
+                      <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 shadow-[0_0_10px_rgba(249,115,22,0.7)] ring-2 ring-white dark:ring-[#151021]">
                         <span
                           className="flame-flicker material-symbols-outlined text-[12px] text-white"
                           style={{ fontVariationSettings: "'FILL' 1" }}
@@ -192,7 +209,7 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
                     </span>
                   )}
                 </span>
-                <span className="absolute -bottom-1.5 left-0 h-0.5 w-0 rounded-full bg-primary transition-all duration-300 group-hover:w-full" />
+                <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-0 -translate-x-1/2 rounded-full bg-gradient-to-r from-primary to-secondary transition-all duration-300 group-hover:w-[calc(100%-24px)]" />
               </Link>
             ))}
           </nav>
@@ -227,27 +244,13 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
             </Link>
           </div>
 
-          {/* Center (desktop): Brand */}
-          <Link
-            href="/"
-            className="absolute left-1/2 top-1/2 hidden h-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center lg:flex"
-          >
-            {logo ? (
-              <img src={logo} alt={siteName || DEFAULT_BRAND} className="block h-full max-w-[220px] object-contain" />
-            ) : (
-              <span className="font-display text-xl font-bold tracking-tight text-editorial-ink dark:text-white lg:text-2xl">
-                {siteName || DEFAULT_BRAND}
-              </span>
-            )}
-          </Link>
-
-          {/* Right: Action icons */}
-          <div className="flex items-center gap-0.5 sm:gap-1">
+          {/* Right: action icons */}
+          <div className="ml-auto flex items-center gap-0.5 sm:gap-1">
             {/* Search */}
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface/70 transition hover:bg-warm-sand hover:text-primary sm:h-11 sm:w-11 dark:text-dark-text/70 dark:hover:bg-dark-card dark:hover:text-primary"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface/70 transition hover:bg-white/80 hover:text-primary shadow-sm dark:text-dark-text/70 dark:hover:bg-white/10 dark:hover:text-primary"
               title="Search (Ctrl+K)"
               aria-label="Search"
             >
@@ -268,13 +271,13 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
             <button
               type="button"
               onClick={() => setCartOpen(true)}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full text-on-surface/70 transition hover:bg-warm-sand hover:text-primary sm:h-11 sm:w-11 dark:text-dark-text/70 dark:hover:bg-dark-card dark:hover:text-primary"
+              className="relative flex h-10 w-10 items-center justify-center rounded-full text-on-surface/70 transition hover:bg-white/80 hover:text-primary shadow-sm dark:text-dark-text/70 dark:hover:bg-white/10 dark:hover:text-primary"
               title="Cart"
               aria-label="Cart"
             >
               <span className="material-symbols-outlined text-[22px]">shopping_cart</span>
               {cartCount > 0 && (
-                <span className="absolute right-1.5 top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-on-primary ring-2 ring-white dark:ring-[#0f172a]">
+                <span className="absolute right-1.5 top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-on-primary ring-2 ring-white dark:ring-[#151021]">
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>
               )}
@@ -284,7 +287,7 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
             <button
               type="button"
               onClick={toggleTheme}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface/70 transition hover:bg-warm-sand hover:text-primary sm:h-11 sm:w-11 dark:text-dark-text/70 dark:hover:bg-dark-card dark:hover:text-primary"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-on-surface/70 transition hover:bg-white/80 hover:text-primary shadow-sm dark:text-dark-text/70 dark:hover:bg-white/10 dark:hover:text-primary"
               title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
               aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
             >

@@ -1,4 +1,6 @@
 import CategoryMultiSelect from '../../../../../src/components/admin/CategoryMultiSelect';
+import TipTapEditor from '../../../../../src/components/admin/TipTapEditor';
+import RichEditorSection from '../../../../../src/components/admin/RichEditorSection';
 
 export default function ProductInfo({ form, onChange, categories, selectedCategories, onCategoriesChange, existingImages, newPreviews, onRemoveExisting, onRemoveNew, onAdd, onGenerateSlug, onGenerateSku }) {
   const inputCls = "mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]";
@@ -23,7 +25,25 @@ export default function ProductInfo({ form, onChange, categories, selectedCatego
         </div>
         <div className="sm:col-span-2">
           <label className={labelCls}>Description</label>
-          <textarea name="description" value={form.description} onChange={onChange} rows={2} className={inputCls} />
+          <div className="mt-1.5 space-y-3">
+            <RichEditorSection id="description" label="Description" content={form.description || ''}>
+              <TipTapEditor
+                content={form.description}
+                onChange={(html) => onChange({ target: { name: 'description', value: html } })}
+              />
+            </RichEditorSection>
+
+            <RichEditorSection id="specification" label="Specifications" content={form.specification || ''}>
+              <TipTapEditor
+                content={form.specification || ''}
+                onChange={(html) => onChange({ target: { name: 'specification', value: html } })}
+              />
+            </RichEditorSection>
+          </div>
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelCls}>YouTube Video URL <span className="text-slate-400 normal-case">(optional — shown as a slide in the product gallery)</span></label>
+          <input name="videoUrl" type="url" value={form.videoUrl || ''} onChange={onChange} className={inputCls} placeholder="https://www.youtube.com/watch?v=…" />
         </div>
         <div className="sm:col-span-2">
           <label className={labelCls}>Meta Description <span className="text-slate-400 normal-case">(SEO — shown in search results, 150–160 chars)</span></label>

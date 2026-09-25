@@ -10,13 +10,20 @@ async function main() {
   // 1. Users
   console.log('Seeding users…');
   const hash = await bcrypt.hash('histacin', 12);
-  
-  await prisma.user.upsert({
-    where: { email: 'joshimfv@gmail.com' },
-    update: { passwordHash: hash, role: 'admin' },
-    create: { name: 'Joshim', email: 'joshimfv@gmail.com', passwordHash: hash, role: 'admin' },
-  });
-  console.log('  ✓ Admin user');
+
+  const users = [
+    { name: 'Joshim Uddin', email: 'joshimfv@gmail.com', role: 'super-admin' },
+    { name: 'Rasel Hasan', email: 'raselfv@gmail.com', role: 'admin' },
+    { name: 'Robin Ahmed', email: 'robinfv@gmail.com', role: 'manager' },
+  ];
+  for (const { name, email, role } of users) {
+    await prisma.user.upsert({
+      where: { email },
+      update: { name, passwordHash: hash, role, status: 'active' },
+      create: { name, email, passwordHash: hash, role, status: 'active' },
+    });
+    console.log(`  ✓ ${role}: ${name} <${email}>`);
+  }
 
   // 2. Site settings
   console.log('\nSeeding site settings…');
@@ -26,7 +33,7 @@ async function main() {
       siteName: 'Eghuri',
       logo: '/uploads/settings/eghuri-logo.png',
       favicon: '/uploads/settings/eghuri-favicon.png',
-      mobile: '01XXXXXXXXX',
+      mobile: '019XXXXXXXX',
       email: 'hello@eghuri.com',
       address: 'Dhaka, Bangladesh',
       copyrightText: '@ 2025 Eghuri. All rights reserved.',

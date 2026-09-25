@@ -1,6 +1,97 @@
 import Link from 'next/link';
 
-export default function PromoBanner({ categories = [] }) {
+export default function PromoBanner({ banner = null, categories = [] }) {
+  if (banner) {
+    const tags = (banner.tags || '')
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    const trustLabels = (banner.trustLabels || '')
+      .split(/\n|\|/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    return (
+      <section className="w-full py-section-gap px-page-margin-mobile md:px-page-margin-desktop max-w-[1440px] mx-auto">
+        <div className="group relative w-full overflow-hidden rounded-3xl bg-gradient-to-br from-soft-blush via-white to-warm-sand shadow-ambient dark:from-dark-bg dark:via-dark-card dark:to-dark-bg">
+          <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-0">
+
+            {/* Image — mobile first (top), desktop (left) */}
+            <div className="relative flex items-center justify-center px-page-margin-mobile pt-10 pb-4 md:py-0 md:pl-12 md:pr-0 md:block order-1">
+              {/* Decorative blobs */}
+              <div className="absolute -top-10 -right-6 h-44 w-44 rounded-full bg-primary-container/20 blur-3xl dark:bg-primary-container/10" />
+              <div className="absolute -bottom-12 -left-8 h-52 w-52 rounded-full bg-secondary-container/30 blur-3xl dark:bg-secondary-container/15" />
+
+              <div className="relative z-10 w-[74%] sm:w-[58%] md:w-[70%] lg:w-[64%] max-w-[420px] aspect-[3/4] overflow-hidden rounded-[2rem] shadow-2xl ring-4 ring-white/80 dark:ring-dark-border">
+                <img
+                  src={banner.image || ''}
+                  alt={banner.title || 'promo'}
+                  className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-105"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+
+            {/* Content — mobile (bottom), desktop (right) */}
+            <div className="relative z-30 flex flex-col items-start gap-5 px-page-margin-mobile py-8 md:px-12 lg:px-16 md:py-16 order-2">
+              {tags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-white/70 px-4 py-1.5 dark:border-dark-border dark:bg-dark-card/60"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                      <span className="text-xs font-semibold uppercase tracking-widest text-muted dark:text-dark-muted">
+                        {tag}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {banner.title && (
+                <h2 className="font-display text-[28px] font-bold leading-[1.1] text-editorial-ink dark:text-dark-text md:text-[42px] lg:text-[46px]">
+                  {banner.title}
+                </h2>
+              )}
+
+              {banner.subtitle && (
+                <p className="max-w-md text-sm leading-relaxed text-muted dark:text-dark-muted md:text-base">
+                  {banner.subtitle}
+                </p>
+              )}
+
+              <Link
+                href={banner.buttonLink || '/categories'}
+                className="mt-3 inline-flex items-center gap-2.5 rounded-full bg-primary px-7 py-3.5 text-sm font-semibold tracking-widest text-white uppercase shadow-lg transition-all duration-300 hover:bg-editorial-ink hover:shadow-xl active:scale-95 dark:hover:bg-primary/85 dark:hover:text-dark-bg"
+              >
+                {banner.buttonText || 'Shop Now'}
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </Link>
+
+              {trustLabels.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2">
+                  {trustLabels.map((item) => (
+                    <span key={item} className="inline-flex items-center gap-1.5 text-xs font-medium text-muted dark:text-dark-muted">
+                      <svg className="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Fallback — category collage when no banner is configured
   const [featured, accent] = categories;
   const hasImages = Boolean(featured?.image);
 

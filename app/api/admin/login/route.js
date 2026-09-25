@@ -12,8 +12,12 @@ export async function POST(request) {
 
     const user = await prisma.user.findUnique({ where: { email } });
 
-    if (!user || user.role !== 'admin') {
+    if (!user || !['super-admin', 'admin', 'manager'].includes(user.role)) {
       return NextResponse.json({ error: 'Invalid credentials.' }, { status: 401 });
+    }
+
+    if (user.status !== 'active') {
+      return NextResponse.json({ error: 'Your account is inactive. Contact an administrator.' }, { status: 403 });
     }
 
     const valid = await verifyPassword(password, user.passwordHash);

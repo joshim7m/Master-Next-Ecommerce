@@ -16,9 +16,11 @@ const pageTitles = {
   '/admin/orders/': 'Order Detail',
   '/admin/incomplete-orders': 'Incomplete Orders',
   '/admin/reports/sales': 'Sales Report',
+  '/admin/users': 'All Users',
   '/admin/settings/home': 'Home Setting',
   '/admin/settings/site': 'Site Setting',
   '/admin/settings/hero-sliders': 'Hero Sliders',
+  '/admin/settings/promo-banner': 'Promo Banner',
   '/admin/settings/social': 'Social Media',
   '/admin/settings/catalog-import-export': 'Catalog Import / Export',
   '/admin/settings/backup-db': 'Backup DB',
@@ -49,7 +51,7 @@ export default function AdminLayout({ children }) {
 
   return (
     <ThemeProvider>
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900" suppressHydrationWarning>
         <AdminSidebar
           sidebarOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}

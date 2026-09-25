@@ -37,7 +37,9 @@ export default function AdminHeader({ onMenuToggle, currentTitle, onLogout, logg
   };
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center border-b border-slate-200 bg-white/80 px-4 backdrop-blur-lg sm:px-6 lg:pl-72 dark:border-slate-700 dark:bg-slate-800/80">
+    <header
+      suppressHydrationWarning
+      className="sticky top-0 z-20 flex h-14 items-center border-b border-slate-200 bg-white/80 px-4 backdrop-blur-lg sm:px-6 lg:pl-72 dark:border-slate-700 dark:bg-slate-800/80">
       {/* Left: hamburger */}
       <div className="flex items-center gap-3 min-w-0 flex-1 lg:flex-none">
         <button

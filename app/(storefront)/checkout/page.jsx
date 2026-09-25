@@ -247,7 +247,6 @@ export default function CheckoutPage() {
       <section className="mx-auto max-w-[1440px] px-page-margin-mobile py-6 sm:px-6 lg:px-page-margin-desktop">
         <div className="mx-auto max-w-sm rounded-2xl border border-border bg-white p-6 text-center shadow-ambient sm:max-w-lg sm:p-10 dark:border-dark-border dark:bg-dark-card">
           <h1 className="text-3xl font-bold dark:text-dark-text">Checkout</h1>
-          <p className="mt-4 text-muted dark:text-dark-muted">Your cart is empty. Add items before checking out.</p>
         </div>
       </section>
     );
@@ -275,12 +274,12 @@ export default function CheckoutPage() {
               {errors.mobile ? <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">{errors.mobile}</p> : null}
             </div>
             <div>
-              <label htmlFor="address" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Address *</label>
-              <textarea id="address" name="address" value={form.address} onChange={handleChange} rows="3" className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.address ? 'border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Street address, building, floor" />
+              <label htmlFor="address" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Full Address *</label>
+              <textarea id="address" name="address" value={form.address} onChange={handleChange} rows="3" className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.address ? 'border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Full Address" />
               {errors.address ? <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">{errors.address}</p> : null}
             </div>
             <div className="rounded-xl border border-border bg-warm-sand p-4 dark:border-dark-border dark:bg-dark-bg">
-              <p className="text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Delivery</p>
+              <p className="text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Delivery Area</p>
               <div className="mt-3 flex flex-col gap-3 sm:flex-row">
                 {[
                   { value: 'Inside Dhaka', charge: 80 },
@@ -344,6 +343,31 @@ export default function CheckoutPage() {
                 })}
               </div>
             </div>
+
+            {/* Trust labels */}
+            <div className="hidden md:grid grid-cols-3 gap-2 pt-1">
+              <div className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-green-400">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a5 5 0 00-10 0v6a5 5 0 0010 0v-6zM9 13v1a3 3 0 006 0v-1">
+                  </path>
+                </svg>
+                <span className="text-[10px] font-semibold leading-tight sm:text-xs">ক্যাশঅন ডেলিভারি </span>
+              </div>
+              <div className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4">
+                  </path>
+                </svg>
+                <span className="text-[10px] font-semibold leading-tight sm:text-xs">সিক্রেট প্যাকেজিং </span>
+              </div>
+              <div className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                  </path>
+                </svg>
+                <span className="text-[10px] font-semibold leading-tight sm:text-xs">সারাদেশে ডেলিভারি </span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -394,8 +418,33 @@ export default function CheckoutPage() {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 text-sm font-bold text-on-primary hover:bg-primary/90 active:scale-[0.98] transition disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary dark:text-on-primary dark:hover:bg-primary/90"
             >
               <span className="material-symbols-outlined text-[20px]">shopping_cart_checkout</span>
-              {submitting ? 'Processing...' : 'Place Order'}
+              {submitting ? 'Processing...' : 'অর্ডারটি কনফার্ম করুন'}
             </button>
+
+            {/* Trust labels — mobile */}
+            <div className="md:hidden mt-3 grid grid-cols-3 gap-2">
+              <div className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-green-400">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a5 5 0 00-10 0v6a5 5 0 0010 0v-6zM9 13v1a3 3 0 006 0v-1">
+                  </path>
+                </svg>
+                <span className="text-[10px] font-semibold leading-tight sm:text-xs">ক্যাশঅন ডেলিভারি </span>
+              </div>
+              <div className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center bg-violet-50 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4">
+                  </path>
+                </svg>
+                <span className="text-[10px] font-semibold leading-tight sm:text-xs">সিক্রেট প্যাকেজিং </span>
+              </div>
+              <div className="flex flex-col items-center gap-1.5 rounded-xl px-2 py-3 text-center bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                  </path>
+                </svg>
+                <span className="text-[10px] font-semibold leading-tight sm:text-xs">সারাদেশে ডেলিভারি </span>
+              </div>
+            </div>
           </div>
         </aside>
       </form>

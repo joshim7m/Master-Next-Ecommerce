@@ -129,4 +129,17 @@ npx prisma generate          # Generate Prisma client
 npx prisma migrate dev       # Apply migrations
 npx prisma db seed           # Seed database (same as npm run seed)
 npx prisma migrate deploy    # Apply migrations in production
+
+
+
+
+
+
+
+
+
+npx prisma migrate reset --force --skip-seed
+npm run fetch-catalog
 ```
+
+

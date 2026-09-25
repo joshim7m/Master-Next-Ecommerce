@@ -314,31 +314,22 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
   return (
     <>
       <div className="rounded-xl border border-border bg-white p-5 shadow-ambient space-y-4 dark:border-dark-border dark:bg-dark-card">
-        {/* ── Title + Wishlist ── */}
+        {/* ── Title ── */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-md font-bold tracking-tight text-on-surface sm:text-xl dark:text-dark-text">
               {product.title}
             </h1>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              {inStock ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">
-                  <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                  <span>In Stock</span> <span className='hidden'>({stockQty})</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-badge-sale/10 px-2 py-0.5 text-xs font-semibold text-badge-sale">
-                  <span className="h-1.5 w-1.5 rounded-full bg-badge-sale" />
-                  Out of Stock
-                </span>
-              )}
-              <span className="text-xs text-muted font-mono dark:text-dark-muted">SKU: {selectedVariant?.sku || product.sku}</span>
-            </div>
           </div>
+        </div>
+
+        {/* ── Meta row: wishlist · stock · SKU ── */}
+        <div className="-mt-2 flex items-center gap-2">
           <button
             type="button"
             onClick={handleWishlist}
-            className="shrink-0 flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white hover:bg-warm-sand transition active:scale-90 dark:border-dark-border dark:bg-dark-card dark:hover:bg-dark-card"
+            title={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+            className="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-white hover:bg-warm-sand transition active:scale-90 dark:border-dark-border dark:bg-dark-card dark:hover:bg-dark-card"
           >
             {wishlisted ? (
               <span className="material-symbols-outlined text-[18px] text-badge-sale" style={{ fontVariationSettings: "'FILL' 1" }}>favorite</span>
@@ -346,12 +337,24 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
               <span className="material-symbols-outlined text-[18px] text-muted dark:text-dark-muted">favorite_border</span>
             )}
           </button>
+          {inStock ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              <span>In Stock</span> <span className='hidden'>({stockQty})</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-badge-sale/10 px-2 py-0.5 text-xs font-semibold text-badge-sale">
+              <span className="h-1.5 w-1.5 rounded-full bg-badge-sale" />
+              Out of Stock
+            </span>
+          )}
+          <span className="text-xs text-muted font-mono dark:text-dark-muted">SKU: {selectedVariant?.sku || product.sku}</span>
         </div>
 
         {divider}
 
         {/* ── Pricing ── */}
-        <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-wrap items-end gap-x-3 gap-y-1.5">
           <div>
             <p className="text-2xl font-bold text-primary sm:text-3xl tracking-tight">
               ৳{activePrice.toLocaleString()}
@@ -362,6 +365,11 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
               ৳{activeOriginalPrice.toLocaleString()}
             </p>
           ) : null}
+          {discountPercent > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-bold text-success">
+              Save ৳{(activeOriginalPrice - activePrice).toLocaleString()} ({discountPercent}%)
+            </span>
+          )}
         </div>
 
         {/* ── Variant selector ── */}
@@ -382,53 +390,56 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
           </>
         )}
 
-        {/* ── Quantity ── */}
+        {/* ── Quantity + Add to Cart — one row, equal size ── */}
         <>
           {divider}
-          <div className="flex items-center justify-between gap-3">
-            <p className="font-label-caps text-[0.65rem] text-muted dark:text-dark-muted">Qty</p>
-            <div className="flex items-center gap-1.5">
+          <div className="grid grid-cols-2 gap-2">
+            {/* Qty stepper */}
+            <div className="flex items-center justify-between rounded-xl border border-border bg-white px-2 py-2 dark:border-dark-border dark:bg-dark-card">
               <button
                 type="button"
                 onClick={() => setQuantity((v) => Math.max(1, v - 1))}
                 disabled={quantity <= 1}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-base text-on-surface/70 hover:border-primary/50 active:scale-90 transition disabled:opacity-40 disabled:cursor-not-allowed dark:border-dark-border dark:bg-dark-card dark:text-dark-text/70"
+                aria-label="Decrease quantity"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-base text-on-surface/70 hover:bg-warm-sand active:scale-90 transition disabled:opacity-40 disabled:cursor-not-allowed dark:text-dark-text/70 dark:hover:bg-dark-bg"
               >
-                <span className="material-symbols-outlined text-[18px]">remove</span>
+                <span className="material-symbols-outlined text-[20px]">remove</span>
               </button>
-              <span className="w-8 text-center text-lg font-bold text-on-surface tabular-nums dark:text-dark-text">{quantity}</span>
+              <span className="text-lg font-bold text-on-surface tabular-nums dark:text-dark-text">{quantity}</span>
               <button
                 type="button"
                 onClick={() => setQuantity((v) => v + 1)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-base text-on-surface/70 hover:border-primary/50 active:scale-90 transition dark:border-dark-border dark:bg-dark-card dark:text-dark-text/70"
+                aria-label="Increase quantity"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-base text-on-surface/70 hover:bg-warm-sand active:scale-90 transition dark:text-dark-text/70 dark:hover:bg-dark-bg"
               >
-                <span className="material-symbols-outlined text-[18px]">add</span>
+                <span className="material-symbols-outlined text-[20px]">add</span>
               </button>
             </div>
-          </div>
-        </>
 
-        {/* ── Buttons ── */}
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            disabled={!inStock}
-            className={`flex w-full items-center justify-center gap-2 rounded-xl px-5 py-4 text-sm font-bold transition active:scale-[0.98] ${
-              inStock
-                ? 'bg-[#6d28d9] text-white shadow-[0_6px_18px_-4px_rgba(109,40,217,0.45)] hover:bg-[#5b21b6] hover:shadow-[0_8px_24px_-4px_rgba(109,40,217,0.6)] dark:bg-[#ff6b6b] dark:text-[#3b0000] dark:shadow-[0_6px_18px_-4px_rgba(255,107,107,0.5)] dark:hover:bg-[#ff8d8d] dark:hover:text-[#2b0505]'
-                : 'cursor-not-allowed bg-border text-muted dark:bg-dark-border dark:text-dark-muted'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[20px]">shopping_cart</span>
-            {inStock ? 'Add to Cart' : 'Out of Stock'}
-          </button>
+            {/* Add to Cart */}
+            <button
+              type="button"
+              onClick={handleAddToCart}
+              disabled={!inStock}
+              className={`flex items-center justify-center gap-2 rounded-xl px-5 text-sm font-bold transition active:scale-[0.98] ${
+                inStock
+                  ? 'bg-[#6d28d9] text-white shadow-[0_6px_18px_-4px_rgba(109,40,217,0.45)] hover:bg-[#5b21b6] hover:shadow-[0_8px_24px_-4px_rgba(109,40,217,0.6)] dark:bg-[#ff6b6b] dark:text-[#3b0000] dark:shadow-[0_6px_18px_-4px_rgba(255,107,107,0.5)] dark:hover:bg-[#ff8d8d] dark:hover:text-[#2b0505]'
+                  : 'cursor-not-allowed bg-border text-muted dark:bg-dark-border dark:text-dark-muted'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[20px]">shopping_cart</span>
+              {inStock ? 'Add to Cart' : 'Out of Stock'}
+            </button>
+          </div>
           {feedback ? (
             <p className="animate-fade-in text-center text-sm font-semibold text-success bg-success/10 rounded-lg py-1.5">
               {feedback}
             </p>
           ) : null}
-          <div className="grid grid-cols-2 gap-2">
+        </>
+
+        {/* ── Buy Now / WhatsApp ── */}
+        <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={handleBuyNow}
@@ -465,7 +476,6 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
               </svg>
               WhatsApp
             </button>
-          </div>
         </div>
 
         {divider}

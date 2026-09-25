@@ -14,40 +14,46 @@ model Category {
   image       String?
   description String?
   parentId    String?
-  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children    Category[] @relation("CategoryHierarchy")
-  products    Product[]  @relation("ProductCategories")
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  products Product[]  @relation("ProductCategories")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([parentId])
   @@index([name])
-  @@index([slug])
 }
 
 model Product {
-  id                String          @id @default(uuid())
-  title             String
-  slug              String          @unique
-  sku               String          @unique
-  description       String?
-  metaDescription   String?
-  tags              String?
-  unite_price       Decimal
-  sale_price        Decimal?
-  quantity          Int?
-  status            String
-  featured          Boolean         @default(false)
-  categories        Category[]      @relation("ProductCategories")
-  images            ProductImage[]
-  variants          ProductVariant[]
-  options           ProductOption[]
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  id              String          @id @default(uuid())
+  title           String
+  slug            String          @unique
+  sku             String          @unique
+  description     String?
+  specification   String?
+  metaDescription String?
+  tags            String?
+  unite_price     Decimal
+  sale_price      Decimal?
+  quantity        Int?
+  status          String
+  featured        Boolean         @default(false)
+  videoUrl        String?
+
+  categories Category[]      @relation("ProductCategories")
+  images     ProductImage[]
+  variants   ProductVariant[]
+  options    ProductOption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status, createdAt])
+  @@index([featured, status, createdAt])
+  @@index([quantity])
   @@index([title])
-  @@index([slug])
 }
 
 model ProductImage {
@@ -56,51 +62,60 @@ model ProductImage {
   productId  String
   image_path String
   altText    String?
-  variants   ProductVariant[]
+
+  variants ProductVariant[]
 
   @@index([productId])
 }
 
 model ProductOption {
-  id        String   @id @default(uuid())
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id       String  @id @default(uuid())
+  product  Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId String
-  name      String
-  position  Int
+  name     String
+  position Int
 
   @@unique([productId, position])
-  @@index([productId])
 }
 
 model ProductVariant {
-  id                String         @id @default(uuid())
-  product           Product        @relation(fields: [productId], references: [id])
-  productId         String
-  sku               String?
-  options           Json           @default("[]")
-  unite_price       Decimal?
-  sale_price        Decimal?
-  image             ProductImage?  @relation(fields: [imageId], references: [id])
-  imageId           String?
-  quantity          Int
-  isDefault         Boolean        @default(false)
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id         String        @id @default(uuid())
+  product    Product       @relation(fields: [productId], references: [id])
+  productId  String
+  sku        String?
+  options    Json          @default("[]")
+  unite_price Decimal?
+  sale_price  Decimal?
+
+  image   ProductImage? @relation(fields: [imageId], references: [id])
+  imageId String?
+
+  quantity  Int
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([productId])
+  @@index([productId, isDefault])
   @@index([imageId])
 }
 
 model User {
-  id            String         @id @default(uuid())
-  name          String
-  email         String         @unique
-  passwordHash  String
-  role          String
-  details       UserDetails?
-  orders        Order[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         String
+  status       String        @default("active")
+
+  details UserDetails?
+  orders  Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
 }
 
 model UserDetails {
@@ -109,25 +124,30 @@ model UserDetails {
   userId          String   @unique
   shippingAddress String
   phoneNumber     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phoneNumber])
 }
 
 model Order {
-  id            String       @id @default(uuid())
-  orderNo       String       @unique
-  user          User?        @relation(fields: [userId], references: [id])
-  userId        String?
-  total         Decimal
-  orderStatus   String
-  details       OrderDetails?
-  items         OrderItem[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id          String        @id @default(uuid())
+  orderNo     String        @unique
+  user        User?         @relation(fields: [userId], references: [id])
+  userId      String?
+  total       Decimal
+  orderStatus String
 
-  @@index([userId])
-  @@index([orderNo])
-  @@index([orderStatus])
+  details OrderDetails?
+  items   OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([orderStatus, createdAt])
+  @@index([createdAt])
 }
 
 model OrderDetails {
@@ -141,44 +161,50 @@ model OrderDetails {
   deliveryCharge  Decimal
   ipAddress       String?
   deviceHash      String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([phoneNumber])
+  @@index([deviceHash])
+  @@index([createdAt])
 }
 
 model BlockedDevice {
-  id          String   @id @default(cuid())
-  deviceHash  String   @unique
-  reason      String?
-  orderNo     String?
-  blockedAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  deviceHash String   @unique
+  reason     String?
+  orderNo    String?
+  blockedAt  DateTime @default(now())
 
-  @@index([deviceHash])
+  @@index([blockedAt])
 }
 
 model SiteSetting {
-  id            String   @id @default("singleton")
-  siteName      String?
-  logo          String?
-  favicon       String?
-  mobile        String?
-  email         String?
-  address       String?
-  copyrightText String?
-  announcementText String?
-  aboutCompany  String?
-  aboutCompanyBn String? @map("aboutCompany_bn")
-  telegramBotToken String?
-  telegramChatId   String?
-  gtmId            String?
-  whatsappNumber   String?
-  siteUrl          String?
-  jwtSecret        String?
-  metaTitle        String?
-  metaDescription  String?
-  metaKeywords     String?
-  ogImage          String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                String   @id @default("singleton")
+  siteName          String?
+  logo              String?
+  favicon           String?
+  mobile            String?
+  email             String?
+  address           String?
+  copyrightText     String?
+  announcementText  String?
+  aboutCompany      String?
+  aboutCompanyBn    String?  @map("aboutCompany_bn")
+  telegramBotToken  String?
+  telegramChatId    String?
+  gtmId             String?
+  whatsappNumber    String?
+  siteUrl            String?
+  jwtSecret         String?
+  metaTitle         String?
+  metaDescription   String?
+  metaKeywords      String?
+  ogImage           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model OrderItem {
@@ -192,11 +218,30 @@ model OrderItem {
   quantity      Int
   variantName   String?
   variantId     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([orderId])
-  @@index([productTitle])
+  @@index([sku])
+  @@index([variantId])
+}
+
+model PromoBanner {
+  id           String   @id @default(cuid())
+  image        String?
+  title        String?
+  subtitle     String?
+  tags         String?
+  buttonText   String?
+  buttonLink   String?
+  trustLabels  String?
+  isActive     Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, createdAt])
 }
 
 model SocialLink {
@@ -206,27 +251,27 @@ model SocialLink {
   icon      String?
   order     Int      @default(0)
   isActive  Boolean  @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([order])
-  @@index([isActive])
+  @@index([isActive, order])
 }
 
 model HeroSlider {
-  id           String   @id @default(cuid())
-  title        String?
-  subtitle     String?
-  buttonText   String?
-  buttonLink   String?
-  image        String?
-  order        Int      @default(0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id         String   @id @default(cuid())
+  title      String?
+  subtitle   String?
+  buttonText String?
+  buttonLink String?
+  image      String?
+  order      Int      @default(0)
+  isActive   Boolean  @default(true)
 
-  @@index([order])
-  @@index([isActive])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, order])
 }
 
 model BlogCategory {
@@ -236,29 +281,34 @@ model BlogCategory {
   image      String?
   authorName String?
   status     String      @default("draft")
-  posts      BlogPost[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+
+  posts BlogPost[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([title])
-  @@index([slug])
 }
 
 model BlogPost {
-  id              String                   @id @default(uuid())
+  id              String       @id @default(uuid())
   title           String
-  slug            String                   @unique
+  slug            String       @unique
   content         String
   bannerImage     String?
-  category        BlogCategory             @relation(fields: [categoryId], references: [id])
-  categoryId      String
+
+  category   BlogCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
   tags            String?
   metaDescription String?
-  status          String                   @default("draft")
-  advertisements  BlogPostAdvertisement[]
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
+  status          String   @default("draft")
+
+  advertisements BlogPostAdvertisement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([categoryId, createdAt])
   @@index([status, createdAt])
@@ -266,22 +316,24 @@ model BlogPost {
 }
 
 model Advertisement {
-  id        String                   @id @default(uuid())
-  title     String
-  image     String?
-  text      String?
-  price     Decimal?
+  id          String  @id @default(uuid())
+  title       String
+  image       String?
+  text        String?
+  price       Decimal?
   productLink String?
+
   blogPosts BlogPostAdvertisement[]
-  createdAt DateTime                 @default(now())
-  updatedAt DateTime                 @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model BlogPostAdvertisement {
   blogPostId      String
-  blogPost        BlogPost       @relation(fields: [blogPostId], references: [id])
+  blogPost        BlogPost      @relation(fields: [blogPostId], references: [id])
   advertisementId String
-  advertisement   Advertisement  @relation(fields: [advertisementId], references: [id])
+  advertisement   Advertisement @relation(fields: [advertisementId], references: [id])
 
   @@id([blogPostId, advertisementId])
 }
