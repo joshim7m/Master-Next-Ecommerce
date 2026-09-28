@@ -24,7 +24,7 @@ export default function Footer({ siteName, mobile, email, address, copyrightText
 
   return (
     <footer className="bg-editorial-ink text-white">
-      <div className="mx-auto max-w-[1440px] px-page-margin-mobile py-16 text-center sm:px-6 sm:text-left lg:px-page-margin-desktop">
+      <div className="mx-auto max-w-[1440px] px-page-margin-mobile py-16 text-center sm:px-4 sm:text-left lg:px-page-margin-desktop">
         <div className="grid gap-10 text-center sm:grid-cols-2 sm:text-left lg:grid-cols-4">
           {/* Brand column */}
           <div className="space-y-4">

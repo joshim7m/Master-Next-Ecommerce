@@ -36,7 +36,7 @@ export default async function ContactPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
       />
-    <div className="mx-auto max-w-4xl px-page-margin-mobile sm:px-6 lg:px-page-margin-desktop py-12 sm:py-16">
+    <div className="mx-auto max-w-4xl px-page-margin-mobile sm:px-4 lg:px-page-margin-desktop py-12 sm:py-16">
       {/* Breadcrumb */}
       <nav className="mb-8 flex items-center gap-1.5 text-xs text-muted" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-primary dark:hover:text-primary transition-colors">Home</Link>

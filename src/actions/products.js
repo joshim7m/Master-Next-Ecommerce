@@ -12,7 +12,43 @@ const productInclude = {
   variants: true,
   categories: true,
   options: { orderBy: { position: 'asc' } },
+  upsells: {
+    include: { upsell: { select: { id: true, title: true, slug: true } } },
+    orderBy: { sortOrder: 'asc' },
+  },
 };
+
+/**
+ * Replace a product's curated cross-sell links.
+ * Selection order becomes `sortOrder`, so the first pick leads the bundle.
+ *
+ * Sanitising happens here rather than in the form: the picker already blocks
+ * these cases, but this is a server action and the `@@unique([productId,
+ * upsellId])` constraint would turn a bad payload into a failed save.
+ */
+async function syncUpsells(productId, upsellIds) {
+  if (!Array.isArray(upsellIds)) return;
+
+  const requested = [...new Set(upsellIds.filter(Boolean))];
+  if (!requested.length) {
+    await prisma.productUpsell.deleteMany({ where: { productId } });
+    return;
+  }
+
+  const existing = await prisma.product.findMany({
+    where: { id: { in: requested } },
+    select: { id: true },
+  });
+  const valid = new Set(existing.map((p) => p.id));
+  const rows = requested.filter((id) => id !== productId && valid.has(id));
+
+  await prisma.productUpsell.deleteMany({ where: { productId } });
+  if (rows.length) {
+    await prisma.productUpsell.createMany({
+      data: rows.map((upsellId, sortOrder) => ({ productId, upsellId, sortOrder })),
+    });
+  }
+}
 
 export async function getProducts() {
   const products = await prisma.product.findMany({
@@ -31,7 +67,7 @@ export async function getCategories() {
 }
 
 export async function createProduct(data) {
-  const { title, slug: rawSlug, description, specification, metaDescription, tags, unite_price, sale_price, sku, quantity, status, featured, videoUrl, categoryIds, imagePaths } = data;
+  const { title, slug: rawSlug, description, specification, metaDescription, tags, unite_price, sale_price, sku, quantity, status, featured, videoUrl, categoryIds, imagePaths, upsellIds } = data;
   const slug = rawSlug?.trim();
   if (!title || !slug) throw new Error('Title and slug are required.');
 
@@ -54,12 +90,14 @@ export async function createProduct(data) {
     include: productInclude,
   });
 
+  await syncUpsells(product.id, upsellIds);
+
   revalidatePath('/admin/products');
   return serialize(product);
 }
 
 export async function updateProduct(id, data) {
-  const { title, slug: rawSlug, description, specification, metaDescription, tags, unite_price, sale_price, sku, quantity, status, featured, videoUrl, categoryIds, imagePaths, removeImageIds, variants, removedVariantIds, options } = data;
+  const { title, slug: rawSlug, description, specification, metaDescription, tags, unite_price, sale_price, sku, quantity, status, featured, videoUrl, categoryIds, imagePaths, removeImageIds, variants, removedVariantIds, options, upsellIds } = data;
   const slug = rawSlug?.trim();
 
   if (removeImageIds?.length) {
@@ -148,6 +186,8 @@ export async function updateProduct(id, data) {
     }
   }
 
+  await syncUpsells(id, upsellIds);
+
   revalidatePath('/admin/products');
   return serialize(product);
 }
@@ -158,6 +198,22 @@ export async function getProduct(id) {
     include: productInclude,
   });
   return serialize(product);
+}
+
+/**
+ * Lightweight published-product list for the upsell picker.
+ * Deliberately not `getProducts()`: that loads every variant, image and option
+ * for the whole catalogue, which the picker does not need.
+ */
+export async function getPublishedProductsLite() {
+  const products = await prisma.product.findMany({
+    where: { status: 'publish' },
+    select: { id: true, title: true, sku: true, images: { take: 1, select: { image_path: true } } },
+    orderBy: { title: 'asc' },
+  });
+  return serialize(
+    products.map((p) => ({ id: p.id, title: p.title, sku: p.sku, image: p.images?.[0]?.image_path || '' }))
+  );
 }
 
 export async function deleteProduct(id) {

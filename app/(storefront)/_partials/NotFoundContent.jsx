@@ -13,7 +13,7 @@ export default function NotFoundContent({ allProducts }) {
   }, [query, allProducts]);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-16 sm:py-24">
+    <div className="mx-auto max-w-7xl px-2 py-16 sm:py-24">
       <div className="text-center">
         <svg className="mx-auto h-32 w-32 text-slate-200 dark:text-slate-700 sm:h-40 sm:w-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={0.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

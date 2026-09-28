@@ -61,11 +61,7 @@ async function main() {
   console.log('\nSeeding hero sliders…');
   const heroSlides = [
     { title: "Comfortable Women's Sleepwear & Nightwear", subtitle: 'Soft, cozy sleepwear sets designed for ultimate comfort — shop dresses, shorts & loungewear', buttonText: 'Shop Sleepwear', buttonLink: '/products', image: 'https://picsum.photos/seed/sleepwear1/1400/500', order: 0 },
-    { title: 'Premium Lingerie & Intimates Collection', subtitle: 'Elegant bra sets, stockings & lingerie — find your perfect fit with fast delivery in Bangladesh', buttonText: 'Explore Lingerie', buttonLink: '/products', image: 'https://picsum.photos/seed/lingerie1/1400/500', order: 1 },
-    { title: 'Beauty & Personal Care Essentials', subtitle: 'Skincare, haircare & grooming products to elevate your daily self-care routine', buttonText: 'Shop Beauty', buttonLink: '/products', image: 'https://picsum.photos/seed/beauty1/1400/500', order: 2 },
-    { title: 'Kitchen & Dining Must-Haves', subtitle: 'Quality cookware, utensils & dining accessories for every modern home', buttonText: 'Shop Kitchen', buttonLink: '/products', image: 'https://picsum.photos/seed/kitchen1/1400/500', order: 3 },
-    { title: 'Trendy Fashion & Lifestyle Picks', subtitle: 'Stay ahead with curated fashion accessories & lifestyle products at affordable prices', buttonText: 'Explore Fashion', buttonLink: '/products', image: 'https://picsum.photos/seed/fashion1/1400/500', order: 4 },
-  ];
+    { title: 'Premium Lingerie & Intimates Collection', subtitle: 'Elegant bra sets, stockings & lingerie — find your perfect fit with fast delivery in Bangladesh', buttonText: 'Explore Lingerie', buttonLink: '/products', image: 'https://picsum.photos/seed/lingerie1/1400/500', order: 1 },  ];
   for (const slide of heroSlides) {
     await prisma.heroSlider.create({ data: slide });
   }

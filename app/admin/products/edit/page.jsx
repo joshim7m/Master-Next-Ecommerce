@@ -3,10 +3,11 @@
 import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { getProduct, getCategories, updateProduct } from '../../../../src/actions/products';
+import { getProduct, getCategories, getPublishedProductsLite, updateProduct } from '../../../../src/actions/products';
 import ProductInfo from './partials/product-info';
 import VariantGenerator from './partials/variant-generator';
 import ManageVariant from './partials/manage-variant';
+import UpsellPicker from './partials/upsell-picker';
 
 const emptyForm = {
   title: '', slug: '', description: '', specification: '', metaDescription: '', tags: '', unite_price: '', sale_price: '', sku: '', videoUrl: '',
@@ -22,6 +23,8 @@ function EditProductForm() {
 
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [publishedProducts, setPublishedProducts] = useState([]);
+  const [upsellIds, setUpsellIds] = useState([]);
   const [form, setForm] = useState({ ...emptyForm });
   const [existingImages, setExistingImages] = useState([]);
   const [newFiles, setNewFiles] = useState([]);
@@ -42,7 +45,7 @@ function EditProductForm() {
       setLoading(false);
       return;
     }
-    Promise.all([getProduct(id), getCategories()]).then(([product, cats]) => {
+    Promise.all([getProduct(id), getCategories(), getPublishedProductsLite()]).then(([product, cats, lite]) => {
       if (!product) {
         setNotFound(true);
         setLoading(false);
@@ -66,6 +69,8 @@ function EditProductForm() {
       setSelectedCategories(product.categories || []);
       setExistingImages(product.images || []);
       setCategories(cats);
+      setPublishedProducts(lite);
+      setUpsellIds((product.upsells || []).map((link) => link.upsell?.id).filter(Boolean));
 
       const loaded = (product.variants || []).map((v) => ({
         _key: `existing_${++variantKeyCounter}`,
@@ -259,6 +264,7 @@ function EditProductForm() {
         options: hasVariants && optionLabels.length ? optionLabels.map((name) => ({ name })) : undefined,
         variants: variantPayload,
         removedVariantIds,
+        upsellIds,
       });
 
       // Sync ids of newly created variants so a second save updates
@@ -401,6 +407,23 @@ function EditProductForm() {
             />
           </div>
         )}
+      </div>
+
+      {/* Upsell / cross-sell section */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Related &amp; Upsell Products</h2>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Shown in the &ldquo;Frequently Bought Together&rdquo; bundle on this product&rsquo;s page, in the cart and at
+          checkout. The first pick leads the bundle.
+        </p>
+        <div className="mt-3">
+          <UpsellPicker
+            products={publishedProducts}
+            selectedIds={upsellIds}
+            currentProductId={id}
+            onChange={setUpsellIds}
+          />
+        </div>
       </div>
 
       <div className="flex gap-3">

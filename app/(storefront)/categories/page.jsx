@@ -70,7 +70,7 @@ export default async function CategoryListingPage({ searchParams }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }}
       />
-      <section className="mx-auto w-full max-w-7xl px-page-margin-mobile py-6 sm:px-6 sm:py-10 lg:px-page-margin-desktop">
+      <section className="mx-auto w-full max-w-7xl px-page-margin-mobile py-6 sm:px-4 sm:py-10 lg:px-page-margin-desktop">
         <div className="relative mb-8 overflow-hidden rounded-2xl bg-gradient-to-r from-editorial-ink via-[#3b0764] to-purple-800 shadow-ambient-lg sm:mb-12">
           {bannerImage && (
             <img src={bannerImage} alt={bannerCat?.name || ''} className="absolute inset-0 h-full w-full object-cover opacity-30" />

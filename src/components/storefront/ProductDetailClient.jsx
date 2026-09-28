@@ -5,6 +5,7 @@ import ImageGallery from './partials/ImageGallery';
 import ProductInfo from './partials/ProductInfo';
 import ProductTabs from './partials/ProductTabs';
 import RelatedProducts from './partials/RelatedProducts';
+import { PdpBundle } from './FrequentlyBoughtTogether';
 
 export default function ProductDetailClient({ product, related, whatsappNumber }) {
   const [variantIndex, setVariantIndex] = useState(0);
@@ -20,14 +21,20 @@ export default function ProductDetailClient({ product, related, whatsappNumber }
     <>
       <div className="grid items-start gap-6 lg:grid-cols-[1.35fr_0.85fr]">
           <ImageGallery images={product.images} title={product.title} variantImageIndex={variantImageIndex} videoUrl={product.videoUrl} />
-        <div className="lg:sticky lg:top-28">
-          <ProductInfo
-            product={product}
-            selectedVariant={selectedVariant}
-            variantIndex={variantIndex}
-            onVariantChange={setVariantIndex}
-            whatsappNumber={whatsappNumber}
-          />
+        {/* The buy box sticks; the bundle box flows beneath it as a small ad
+            slot. It sits outside the sticky wrapper so it neither inherits the
+            pinned position nor adds to the height the buy box has to fit in. */}
+        <div>
+          <div className="lg:sticky lg:top-28">
+            <ProductInfo
+              product={product}
+              selectedVariant={selectedVariant}
+              variantIndex={variantIndex}
+              onVariantChange={setVariantIndex}
+              whatsappNumber={whatsappNumber}
+            />
+          </div>
+          <PdpBundle product={product} selectedVariant={selectedVariant} />
         </div>
       </div>
 

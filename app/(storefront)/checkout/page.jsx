@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { loadCart, clearCart } from '../../../src/lib/cartStorage';
 import { pushDataLayer } from '../../../src/lib/gtm';
 import useDeviceFingerprint from '../../../src/hooks/useDeviceFingerprint';
+import FrequentlyBoughtTogether from '../../../src/components/storefront/FrequentlyBoughtTogether';
 
 const MOBILE_REGEX = /^(013|014|015|016|017|018|019)\d{8}$/;
 const DRAFT_KEY = 'incomplete-checkout-orderNo';
@@ -52,6 +53,12 @@ export default function CheckoutPage() {
   useEffect(() => {
     setCart(loadCart());
     setHydrated(true);
+
+    // The upsell bundle adds items from this page, so the summary, totals and
+    // the submitted order all have to pick them up.
+    const handler = () => setCart(loadCart());
+    window.addEventListener('cart-updated', handler);
+    return () => window.removeEventListener('cart-updated', handler);
   }, []);
 
   useEffect(() => {
@@ -233,7 +240,7 @@ export default function CheckoutPage() {
 
   if (!hydrated) {
     return (
-      <section className="mx-auto max-w-[1440px] px-page-margin-mobile py-6 sm:px-6 lg:px-page-margin-desktop">
+      <section className="mx-auto max-w-[1440px] px-page-margin-mobile py-6 sm:px-4 lg:px-page-margin-desktop">
         <div className="mx-auto max-w-sm rounded-2xl border border-border bg-white p-6 text-center shadow-ambient sm:max-w-lg sm:p-10 dark:border-dark-border dark:bg-dark-card">
           <div className="h-6 w-48 animate-pulse rounded bg-warm-sand mx-auto dark:bg-dark-card" />
           <div className="mt-4 h-4 w-64 animate-pulse rounded bg-warm-sand mx-auto dark:bg-dark-card" />
@@ -244,7 +251,7 @@ export default function CheckoutPage() {
 
   if (cart.length === 0) {
     return (
-      <section className="mx-auto max-w-[1440px] px-page-margin-mobile py-6 sm:px-6 lg:px-page-margin-desktop">
+      <section className="mx-auto max-w-[1440px] px-page-margin-mobile py-6 sm:px-4 lg:px-page-margin-desktop">
         <div className="mx-auto max-w-sm rounded-2xl border border-border bg-white p-6 text-center shadow-ambient sm:max-w-lg sm:p-10 dark:border-dark-border dark:bg-dark-card">
           <h1 className="text-3xl font-bold dark:text-dark-text">Checkout</h1>
         </div>
@@ -253,7 +260,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <section className="mx-auto max-w-[1440px] px-page-margin-mobile py-6 sm:px-6 lg:px-page-margin-desktop">
+    <section className="mx-auto max-w-[1440px] px-page-margin-mobile py-6 sm:px-4 lg:px-page-margin-desktop">
       <form onSubmit={handleSubmit} className="mx-auto max-w-lg lg:max-w-5xl lg:grid lg:grid-cols-[1fr_420px] lg:gap-8">
         <div className="space-y-4 rounded-2xl border border-border bg-white p-4 shadow-ambient sm:p-6 dark:border-dark-border dark:bg-dark-card">
           <h1 className="text-xl font-bold text-on-surface sm:text-2xl dark:text-dark-text">Checkout</h1>
@@ -368,10 +375,22 @@ export default function CheckoutPage() {
                 <span className="text-[10px] font-semibold leading-tight sm:text-xs">সারাদেশে ডেলিভারি </span>
               </div>
             </div>
+
+            {/* Upsell — the same small ad box as the cart and product page.
+                Rendered under the trust stats rather than in the Order Summary
+                so the add-ons are not competing with the form for the sticky
+                rail. Dismissible, and hidden once its items are in the cart. */}
+            <FrequentlyBoughtTogether
+              density="compact"
+              surface
+              limit={3}
+              dismissible
+              hideWhenInCart
+            />
           </div>
         </div>
 
-        <aside className="sticky top-6 mt-6 flex flex-col rounded-2xl border border-border bg-white shadow-ambient lg:mt-0 dark:border-dark-border dark:bg-dark-card">
+        <aside className="sticky top-6 mt-6 flex flex-col rounded-2xl border border-border bg-white shadow-ambient lg:mt-0 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto dark:border-dark-border dark:bg-dark-card">
           <div className="border-b border-border px-4 py-3 sm:px-6 sm:py-4 dark:border-dark-border">
             <h2 className="text-sm font-semibold text-on-surface dark:text-dark-text">Order Summary</h2>
           </div>

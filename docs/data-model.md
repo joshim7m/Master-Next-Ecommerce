@@ -13,7 +13,7 @@ Hierarchical product categories (self-referential).
 
 ### Product
 - `id` (UUID), `title`, `slug` (unique), `sku` (unique)
-- `description?`, `metaDescription?` (SEO), `tags?`
+- `description?` (HTML from the TipTap editor), `specification?` (HTML from the TipTap editor — rendered in the storefront "Specifications" tab), `metaDescription?` (SEO), `tags?`
 - `unite_price` (Decimal, required) — base price used when product has no variants
 - `sale_price` (Decimal?) — base sale price used when no variants
 - `quantity` (Int?) — base inventory for non-variant products
@@ -41,10 +41,25 @@ Variant option definitions (Shopify-style dynamic options, max 3 per product).
 - `quantity` (Int, required), `isDefault` (Boolean, default false)
 - Indexes: productId, imageId
 
+### ProductUpsell
+Curated cross-sell links feeding the "Frequently Bought Together" bundle. A row means "when `product` is being viewed or is in the cart, recommend `upsell`".
+- `id` (cuid), `productId` → Product, `upsellId` → Product
+- `sortOrder` (Int, default 0) — selection order in the admin picker; the first pick leads the bundle
+- `createdAt` (DateTime)
+- Unique index on `[productId, upsellId]`; separate index on `upsellId`
+- Both relations `onDelete: Cascade`, so deleting a product never orphans a link
+- Admin-managed via `syncUpsells()` in `src/actions/products.js`, which sanitises the payload (drops self-references, duplicates and unknown ids) before writing
+
 ### Pricing & selection behavior
 - If a product has one or more `ProductVariant` records, the storefront shows a variant selector built from the product's `ProductOption` definitions — customers pick a value for every option before adding to cart. Options named "color" (case-insensitive) render as swatches; all other options render as value pills.
 - Varianted products display the selected variant's `unite_price` (or `sale_price` when present); non-varianted products use the base `Product.unite_price` / `sale_price`.
 - Discount display: amount = `price - sale_price`; percent = `((price - sale_price) / price) * 100` (guard against division by zero).
+- A `sale_price` is only treated as a discount when it is lower than `unite_price`. The seeded catalogue currently has the two the other way round on all 61 rows that have a `sale_price`, so a naive strikethrough renders a lower "original" price than the one being charged. See `displayPricing()` in `src/components/storefront/FrequentlyBoughtTogether.jsx`.
+
+### Cross-sell recommendation behavior
+- `src/lib/recommendations.js` is the single merchandising entry point. `getUpsellAddOns()` returns curated `ProductUpsell` rows first (in `sortOrder`) and backfills the remainder with `getAutoRelated()`; the response reports which path ran as `source: 'curated' | 'auto' | 'mixed'`.
+- `getAutoRelated()` scores same-category candidates: `3 × sharedCategories + 2 × sharedTags + 1 if price within ±30% of a seed + 0.5 if featured`, ties broken newest-first, then backfilled with featured-then-newest products.
+- Seed products are always excluded from their own results, out-of-stock products are filtered, and only `status: 'publish'` products are ever returned.
 
 ## Users & Orders
 

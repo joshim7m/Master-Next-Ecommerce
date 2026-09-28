@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { loadCart, updateCartItem, removeCartItem } from '../../../src/lib/cartStorage';
 import { pushDataLayer } from '../../../src/lib/gtm';
+import FrequentlyBoughtTogether from '../../../src/components/storefront/FrequentlyBoughtTogether';
 
 export default function CartPage() {
   const [cart, setCart] = useState([]);
@@ -13,6 +14,12 @@ export default function CartPage() {
   useEffect(() => {
     setCart(loadCart());
     setHydrated(true);
+
+    // The upsell bundle adds items from this page, so the line items and the
+    // subtotal below it have to pick them up.
+    const handler = () => setCart(loadCart());
+    window.addEventListener('cart-updated', handler);
+    return () => window.removeEventListener('cart-updated', handler);
   }, []);
 
   useEffect(() => {
@@ -56,7 +63,7 @@ export default function CartPage() {
   };
 
   return (
-    <section className="mx-auto max-w-[1440px] px-page-margin-mobile sm:px-6 lg:px-page-margin-desktop py-12">
+    <section className="mx-auto max-w-[1440px] px-page-margin-mobile sm:px-4 lg:px-page-margin-desktop py-12">
       <div className="mx-auto max-w-3xl">
         <h1 className="text-3xl font-bold text-on-surface dark:text-dark-text">Your Cart</h1>
 
@@ -109,6 +116,10 @@ export default function CartPage() {
                 </div>
               </div>
             ))}
+
+            {/* Rendered as a small ad-slot box, matching the product page. The
+                close button returns null, so the section leaves nothing behind. */}
+            <FrequentlyBoughtTogether density="compact" surface dismissible limit={3} />
 
             <div className="rounded-xl border border-border bg-white p-6 shadow-sm dark:border-dark-border dark:bg-dark-card">
               <div className="flex items-center justify-between">

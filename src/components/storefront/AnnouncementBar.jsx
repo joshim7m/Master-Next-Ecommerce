@@ -6,7 +6,7 @@ export default function AnnouncementBar({ text }) {
 
   return (
     <div className="relative overflow-hidden bg-editorial-ink text-white dark:bg-[#1a0a3d]">
-      <div className="max-w-7xl mx-auto py-2 px-4">
+      <div className="max-w-7xl mx-auto py-2 px-2 sm:px-4">
         <marquee
           behavior="scroll"
           direction="left"

@@ -48,7 +48,7 @@ export default function TrendingNow({ products = [] }) {
   if (!products.length) return null;
 
   return (
-    <section className="py-section-gap px-page-margin-mobile md:px-page-margin-desktop max-w-[1440px] mx-auto">
+    <section className="py-section-gap px-page-margin-mobile sm:px-4 md:px-page-margin-desktop max-w-[1440px] mx-auto">
       <div className="flex justify-between items-end mb-stack-lg">
         <h2 className="font-headline-md md:font-headline-lg text-headline-md md:text-headline-lg text-editorial-ink dark:text-dark-text">
           Trending Now

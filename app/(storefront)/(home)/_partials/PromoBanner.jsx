@@ -12,7 +12,7 @@ export default function PromoBanner({ banner = null, categories = [] }) {
       .filter(Boolean);
 
     return (
-      <section className="w-full py-section-gap px-page-margin-mobile md:px-page-margin-desktop max-w-[1440px] mx-auto">
+      <section className="w-full py-section-gap px-page-margin-mobile sm:px-4 md:px-page-margin-desktop max-w-[1440px] mx-auto">
         <div className="group relative w-full overflow-hidden rounded-3xl bg-gradient-to-br from-soft-blush via-white to-warm-sand shadow-ambient dark:from-dark-bg dark:via-dark-card dark:to-dark-bg">
           <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-0">
 
@@ -96,7 +96,7 @@ export default function PromoBanner({ banner = null, categories = [] }) {
   const hasImages = Boolean(featured?.image);
 
   return (
-    <section className="w-full py-section-gap px-page-margin-mobile md:px-page-margin-desktop max-w-[1440px] mx-auto">
+    <section className="w-full py-section-gap px-page-margin-mobile sm:px-4 md:px-page-margin-desktop max-w-[1440px] mx-auto">
       <div className="group relative w-full overflow-hidden rounded-3xl bg-gradient-to-br from-soft-blush via-white to-warm-sand shadow-ambient dark:from-dark-bg dark:via-dark-card dark:to-dark-bg">
         <div className="grid grid-cols-1 md:grid-cols-2 items-center gap-0">
 

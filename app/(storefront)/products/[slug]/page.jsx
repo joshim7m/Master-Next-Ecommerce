@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import ProductDetailClient from '../../../../src/components/storefront/ProductDetailClient';
 import { getSiteSettings } from '../../../../src/lib/getSiteSettings';
+import { getAutoRelated } from '../../../../src/lib/recommendations';
 import { siteNameOf, siteUrlOf } from '../../../../src/lib/siteSettings';
 
 async function getProduct(slug) {
@@ -82,33 +83,10 @@ export default async function ProductPage({ params }) {
   const category = product.categories?.[0] || null;
   const RELATED_COUNT = 6;
 
-  let related = category
-    ? await prisma.product.findMany({
-        where: {
-          status: 'publish',
-          categories: { some: { id: category.id } },
-          id: { not: product.id },
-        },
-        include: { images: true, variants: true },
-        take: RELATED_COUNT,
-        orderBy: { createdAt: 'desc' },
-      })
-    : [];
-
-  if (related.length < RELATED_COUNT) {
-    const missing = RELATED_COUNT - related.length;
-    const relatedIds = related.map((r) => r.id);
-    const fallback = await prisma.product.findMany({
-      where: {
-        status: 'publish',
-        id: { notIn: [product.id, ...relatedIds] },
-      },
-      include: { images: true, variants: true },
-      take: missing,
-      orderBy: { createdAt: 'desc' },
-    });
-    related = [...related, ...fallback];
-  }
+  // Same-category candidates first, scored by shared tags and price proximity,
+  // then backfilled with featured and newest products.
+  // See src/lib/recommendations.js.
+  const related = await getAutoRelated({ seedIds: [product.id], limit: RELATED_COUNT });
 
   const price = Number(product.sale_price || product.unite_price);
   const imageUrl = product.images?.[0]?.image_path || `${siteUrl}/og-image.png`;
@@ -169,7 +147,7 @@ export default async function ProductPage({ params }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <div className="mx-auto max-w-[1440px] px-page-margin-mobile sm:px-6 lg:px-page-margin-desktop py-6 sm:py-10">
+      <div className="mx-auto max-w-[1440px] px-page-margin-mobile sm:px-4 lg:px-page-margin-desktop py-6 sm:py-10">
         {/* Breadcrumbs */}
         <nav className="mb-6 flex items-center gap-1.5 text-xs text-muted sm:text-sm dark:text-dark-muted" aria-label="Breadcrumb">
           <Link href="/" className="transition-colors hover:text-primary">Home</Link>
@@ -187,7 +165,7 @@ export default async function ProductPage({ params }) {
 
         <ProductDetailClient
           product={JSON.parse(JSON.stringify(product))}
-          related={JSON.parse(JSON.stringify(related))}
+          related={related}
           whatsappNumber={settings.whatsappNumber || ''}
         />
       </div>

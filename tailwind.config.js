@@ -56,7 +56,11 @@ module.exports = {
         'label-caps': ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.1em', fontWeight: '600' }],
       },
       spacing: {
-        'page-margin-mobile': '1.25rem',
+        // Page gutter. 0.5rem = px-2, matching the hardcoded px-2 the non-token
+        // page wrappers use, so every page and the header/footer agree at mobile
+        // width. Page wrappers pair this with `sm:px-4` and then the desktop
+        // margin — without that middle step the gutter would jump 8px -> 40px.
+        'page-margin-mobile': '0.5rem',
         'page-margin-desktop': '2.5rem',
         gutter: '0.5rem',
         'section-gap': '4rem',

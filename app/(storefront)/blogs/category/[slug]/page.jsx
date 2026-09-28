@@ -125,7 +125,7 @@ export default async function BlogCategoryPage({ params }) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }} />
 
-      <div className="mx-auto max-w-[1440px] px-page-margin-mobile py-8 sm:px-6 lg:px-page-margin-desktop sm:py-12">
+      <div className="mx-auto max-w-[1440px] px-page-margin-mobile py-8 sm:px-4 lg:px-page-margin-desktop sm:py-12">
         {/* Breadcrumb */}
         <nav className="mb-6 flex items-center gap-1.5 text-xs text-muted" aria-label="Breadcrumb">
           <Link href="/" className="hover:text-primary transition-colors">Home</Link>

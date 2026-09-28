@@ -48,7 +48,7 @@ export default async function HotSalesPage() {
       : 0;
 
   return (
-    <section className="mx-auto max-w-[1440px] px-page-margin-mobile md:px-page-margin-desktop py-6 sm:py-12">
+    <section className="mx-auto max-w-[1440px] px-page-margin-mobile sm:px-4 md:px-page-margin-desktop py-6 sm:py-12">
       {/* Hero banner */}
       <div className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#ae2f34] via-[#c94f54] to-[#7a1620] shadow-ambient sm:mb-8">
         <div className="absolute -right-10 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl" />

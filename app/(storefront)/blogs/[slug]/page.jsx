@@ -156,7 +156,7 @@ export default async function BlogPostPage({ params }) {
       <article itemScope itemType="https://schema.org/BlogPosting">
         {/* Breadcrumb */}
         <div className="border-b border-border bg-white/80 backdrop-blur-sm dark:border-dark-border dark:bg-dark-surface/80">
-          <nav className="mx-auto flex max-w-4xl items-center gap-1.5 px-page-margin-mobile py-3 text-xs text-muted sm:px-6" aria-label="Breadcrumb">
+          <nav className="mx-auto flex max-w-4xl items-center gap-1.5 px-page-margin-mobile py-3 text-xs text-muted sm:px-4" aria-label="Breadcrumb">
             <Link href="/" className="hover:text-primary transition-colors">Home</Link>
             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
             <Link href="/blogs" className="hover:text-primary transition-colors">Blog</Link>
@@ -171,7 +171,7 @@ export default async function BlogPostPage({ params }) {
           </nav>
         </div>
 
-        <div className="mx-auto max-w-4xl px-page-margin-mobile pb-12 sm:px-6 sm:pb-16">
+        <div className="mx-auto max-w-4xl px-page-margin-mobile pb-12 sm:px-4 sm:pb-16">
           {/* Banner */}
           {post.bannerImage && (
             <div className="mb-8 overflow-hidden rounded-xl shadow-ambient dark:shadow-none">

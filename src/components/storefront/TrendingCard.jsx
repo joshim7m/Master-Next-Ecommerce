@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { ShoppingCart, Check } from 'lucide-react';
-import { addToCart } from '../../lib/cartStorage';
+import { addToCart, productToCartItem } from '../../lib/cartStorage';
 import { toggleWishlist, loadWishlist } from '../../lib/wishlistStorage';
 import { pushDataLayer } from '../../lib/gtm';
 
@@ -16,7 +16,7 @@ export default function TrendingCard({ product, index = 0 }) {
   const price = Number(product.sale_price || product.unite_price);
   const originalPrice = product.sale_price ? Number(product.unite_price) : null;
   const firstImage = product.images?.[0]?.image_path;
-  const variant = product.variants?.[0];
+  const variant = product.variants?.find((v) => v.isDefault) || product.variants?.[0] || null;
   const variantName = variant ? ((variant.options || []).filter(Boolean).join(' / ') || 'Default') : 'Default';
 
   useEffect(() => {
@@ -39,18 +39,7 @@ export default function TrendingCard({ product, index = 0 }) {
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    addToCart({
-      productId: product.id,
-      productSlug: product.slug,
-      sku: product.sku,
-      title: product.title,
-      image: firstImage || '',
-      variantId: variant ? variant.id : 'default',
-      variantName,
-      price: String(price),
-      salePrice: product.sale_price ? String(product.sale_price) : null,
-      quantity: 1,
-    });
+    addToCart(productToCartItem(product));
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
 

@@ -15,7 +15,7 @@ export async function generateMetadata() {
 export default async function TermsPage() {
   const siteName = siteNameOf(await getSiteSettings());
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8 sm:py-16">
+    <div className="mx-auto max-w-4xl px-2 py-12 sm:px-4 lg:px-8 sm:py-16">
       {/* Breadcrumb */}
       <nav className="mb-8 flex items-center gap-2 text-xs text-slate-400" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-[#2f0f6b] dark:hover:text-[#a78bfa] transition-colors">Home</Link>

@@ -110,7 +110,7 @@ export default async function CategoryProductsPage({ params, searchParams }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 sm:py-12">
+      <section className="mx-auto max-w-7xl px-2 py-6 sm:px-4 lg:px-8 sm:py-12">
         <div className="relative mb-6 aspect-[3/2] overflow-hidden rounded-2xl bg-slate-200 sm:mb-8 sm:aspect-[4/1]">
           {category.image ? (
             <img src={category.image} alt={category.name} className="h-full w-full object-cover" />

@@ -169,7 +169,7 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
       >
         {/* subtle hairline accent */}
         <span className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-primary/50 via-secondary/50 to-primary/30" />
-        <div className="relative mx-auto flex h-14 max-w-[1440px] items-center gap-6 px-page-margin-mobile lg:h-16 lg:gap-8 lg:px-page-margin-desktop">
+        <div className="relative mx-auto flex h-14 max-w-[1440px] items-center gap-6 px-page-margin-mobile sm:px-4 lg:h-16 lg:gap-8 lg:px-page-margin-desktop">
           {/* Left: Brand */}
           <Link
             href="/"

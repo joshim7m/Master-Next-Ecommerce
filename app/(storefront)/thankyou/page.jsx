@@ -10,7 +10,7 @@ export const metadata = {
 
 export default function ThankYouPage() {
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 sm:px-6">
+    <section className="mx-auto w-full max-w-7xl px-2 sm:px-4">
       <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><div className="mx-auto max-w-sm rounded-2xl border border-border bg-white p-10 text-center shadow-ambient dark:border-dark-border dark:bg-dark-card"><p className="text-muted dark:text-dark-muted">Loading...</p></div></div>}>
         <ThankYouContent />
       </Suspense>

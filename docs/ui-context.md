@@ -151,7 +151,8 @@ Material Symbols Outlined loaded via Google Fonts. Used consistently across Head
 
 **Implemented:**
 - `ThemeProvider` + `useTheme` — admin dark mode context
-- `TipTapEditor` — rich text editor with toolbar (bold/italic/underline/strike/headings/lists/quote/code/link/image)
+- `TipTapEditor` — rich text editor with toolbar (bold/italic/underline/headings/lists/quote/code/link/image). Strike is available through StarterKit's `~~markdown~~` input rule but has no toolbar button
+- `RichEditorSection` — collapsible rich-text section (label + chevron + `Empty` pill / 90-char plain-text preview, open state in `localStorage` key `productEditor:<field>`); wraps the product `description` and `specification` editors. See `product-description-specification.md`
 - `CategoryMultiSelect`, `AdvertisementMultiSelect`
 - Shell: `AdminSidebar`, `AdminHeader`
 
