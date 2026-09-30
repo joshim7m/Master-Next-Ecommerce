@@ -325,7 +325,7 @@ function BundleSkeleton({ density, count = 3 }) {
 /* ------------------------------------------------------------------ */
 
 export function BundleView({
-  heading = 'Frequently Bought Together',
+  heading = 'একসাথে আরো নিতে পারেন ',
   subheading,
   seedItems = [],
   seedTotal = 0,
@@ -335,7 +335,7 @@ export function BundleView({
   addedIds = [],
   loading = false,
   density = 'comfortable',
-  ctaLabel = 'Add all to cart',
+  ctaLabel = 'সবগুলো কার্টে যোগ করুন ',
   surface = false,
   showSeedGroup = true,
   ctaIncludesSeed = false,
@@ -374,8 +374,8 @@ export function BundleView({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <h3
-                className={`flex items-center gap-1.5 font-bold text-on-surface dark:text-dark-text ${
-                  compact ? 'text-xs' : 'font-display text-headline-md'
+                className={`flex items-center gap-1.5 font-bold text-base dark:text-dark-text ${
+                  compact ? 'text-base' : 'font-display text-headline-md'
                 }`}
               >
                 <span className={`material-symbols-outlined text-primary ${compact ? 'text-[16px]' : 'text-[22px]'}`}>
@@ -393,8 +393,8 @@ export function BundleView({
                 type="button"
                 onClick={onDismiss}
                 aria-label="Dismiss recommendations"
-                className={`-mr-1 -mt-0.5 flex shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-on-surface/5 hover:text-on-surface dark:text-dark-muted dark:hover:bg-dark-surface dark:hover:text-dark-text ${
-                  compact ? 'h-6 w-6' : 'h-7 w-7'
+                className={`-mr-1 -mt-0.5 flex shrink-0 items-center justify-center rounded-full text-red-500 transition-colors hover:bg-on-surface/5 hover:text-on-surface dark:text-dark-muted dark:hover:bg-dark-surface dark:hover:text-dark-text ${
+                  compact ? 'h-8 w-8' : 'h-8 w-8'
                 }`}
               >
                 <X size={compact ? 14 : 16} strokeWidth={2.2} />

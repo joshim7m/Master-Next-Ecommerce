@@ -63,9 +63,9 @@ export default function CartPage() {
   };
 
   return (
-    <section className="mx-auto max-w-[1440px] px-page-margin-mobile sm:px-4 lg:px-page-margin-desktop py-12">
+    <section className="mx-auto max-w-[1440px] px-page-margin-mobile sm:px-4 lg:px-page-margin-desktop py-5">
       <div className="mx-auto max-w-3xl">
-        <h1 className="text-3xl font-bold text-on-surface dark:text-dark-text">Your Cart</h1>
+        <h1 className="text-xl font-bold text-on-surface dark:text-dark-text">Your Cart</h1>
 
         {cart.length === 0 ? (
           <div className="mt-8 rounded-xl border border-border bg-white p-10 text-center shadow-sm dark:border-dark-border dark:bg-dark-card">
@@ -81,12 +81,12 @@ export default function CartPage() {
               <div key={`${item.productSlug}-${item.variantId}-${index}`} className="rounded-xl border border-border bg-white p-4 shadow-sm dark:border-dark-border dark:bg-dark-card">
                 <div className="flex items-start gap-4">
                   {item.image ? (
-                    <img src={item.image} alt={item.title} className="h-24 w-24 rounded-lg object-cover" />
+                    <img src={item.image} alt={item.title} className="h-14 w-14 rounded-lg object-cover" />
                   ) : (
-                    <div className="h-24 w-24 rounded-lg bg-warm-sand dark:bg-dark-card" />
+                    <div className="h-14 w-14 rounded-lg bg-warm-sand dark:bg-dark-card" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <Link href={`/products/${item.productSlug}`} className="font-medium text-on-surface hover:text-primary transition dark:text-dark-text dark:hover:text-primary">
+                    <Link href={`/products/${item.productSlug}`} className="font-medium text-sm hover:text-primary transition dark:text-dark-text dark:hover:text-primary">
                       {item.title}
                     </Link>
                     <div className='flex items-center gap-x-2'>
@@ -117,25 +117,26 @@ export default function CartPage() {
               </div>
             ))}
 
-            {/* Rendered as a small ad-slot box, matching the product page. The
-                close button returns null, so the section leaves nothing behind. */}
-            <FrequentlyBoughtTogether density="compact" surface dismissible limit={3} />
+           
+           
 
             <div className="rounded-xl border border-border bg-white p-6 shadow-sm dark:border-dark-border dark:bg-dark-card">
               <div className="flex items-center justify-between">
-                <p className="text-lg font-semibold text-on-surface dark:text-dark-text">Subtotal</p>
+                <p className="text-base font-semibold text-on-surface dark:text-dark-text">Subtotal</p>
                 <p className="text-lg font-semibold text-primary dark:text-primary">৳ {subtotal.toLocaleString()}</p>
               </div>
             </div>
 
             <Link
               href="/checkout"
-              className="inline-flex rounded-xl bg-primary px-6 py-4 text-white hover:bg-primary/90 transition dark:bg-primary dark:text-dark-text"
+              className="flex w-full text-center justify-center rounded-xl bg-primary px-6 py-2.5 text-white hover:bg-primary/90 transition dark:bg-primary dark:text-dark-text"
             >
               চেকআউটে যান
             </Link>
           </div>
         )}
+
+         <FrequentlyBoughtTogether density="compact" surface dismissible limit={3} />
       </div>
     </section>
   );

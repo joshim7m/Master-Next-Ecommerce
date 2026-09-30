@@ -27,9 +27,9 @@ export default function Hero({ slides = [] }) {
     <section
       className="bg-[#eff6ff] px-4 py-12 dark:bg-dark-card/30"
     >
-      <div className='relative mx-auto w-full max-w-[1440px] overflow-hidden rounded-3xl bg-[#eff6ff]'>
+      <div className='relative mx-auto w-full max-w-[1440px] overflow-hidden bg-[#eff6ff] rounded-lg sm:rounded-2xl'>
         {/* Slides — stacked images with fade transition */}
-        <div className="relative h-[420px] sm:h-[480px] md:h-[520px] lg:h-[560px]">
+        <div className="aspect-[4/3] w-full overflow-hidden bg-slate-100 sm:aspect-[2.8/1] ">
           {slides.map((s, i) => (
             <img
               key={s.image + i || i}

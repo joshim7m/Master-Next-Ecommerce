@@ -375,18 +375,7 @@ export default function CheckoutPage() {
                 <span className="text-[10px] font-semibold leading-tight sm:text-xs">সারাদেশে ডেলিভারি </span>
               </div>
             </div>
-
-            {/* Upsell — the same small ad box as the cart and product page.
-                Rendered under the trust stats rather than in the Order Summary
-                so the add-ons are not competing with the form for the sticky
-                rail. Dismissible, and hidden once its items are in the cart. */}
-            <FrequentlyBoughtTogether
-              density="compact"
-              surface
-              limit={3}
-              dismissible
-              hideWhenInCart
-            />
+            
           </div>
         </div>
 
@@ -464,6 +453,15 @@ export default function CheckoutPage() {
                 <span className="text-[10px] font-semibold leading-tight sm:text-xs">সারাদেশে ডেলিভারি </span>
               </div>
             </div>
+
+            <FrequentlyBoughtTogether
+              density="compact"
+              surface
+              limit={3}
+              dismissible
+              hideWhenInCart
+            />
+            
           </div>
         </aside>
       </form>

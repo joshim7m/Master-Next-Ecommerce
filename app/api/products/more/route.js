@@ -8,22 +8,35 @@ export async function GET(request) {
 
   const products = await prisma.product.findMany({
     where: { status: 'publish' },
-    include: { images: { take: 1 }, variants: { take: 1 } },
+    // All variants: the card picks the default one itself, same as
+    // `productToCartItem`. Taking only the first row could hand it a
+    // non-default variant and a different cart line.
+    include: { images: { take: 1 }, variants: true },
     orderBy: { createdAt: 'desc' },
     skip,
     take,
   });
 
-  const mapped = products.map((p) => ({
-    id: p.id,
-    title: p.title,
-    slug: p.slug,
-    sku: p.sku,
-    unite_price: Number(p.unite_price),
-    sale_price: p.sale_price ? Number(p.sale_price) : null,
-    images: (p.images || []).map((i) => ({ image_path: i.image_path, altText: i.altText || null })),
-    variants: (p.variants || []).map((v) => ({ id: v.id, options: v.options || [] })),
-  }));
+  const mapped = products.map((p) => {
+    const variants = p.variants || [];
+    const chosen = variants.find((v) => v.isDefault) || variants[0] || null;
+
+    return {
+      id: p.id,
+      title: p.title,
+      slug: p.slug,
+      sku: p.sku,
+      unite_price: Number(p.unite_price),
+      sale_price: p.sale_price ? Number(p.sale_price) : null,
+      // TrendingCard derives stock availability from this, so both the product
+      // and the chosen variant's quantity have to survive serialisation.
+      quantity: p.quantity,
+      images: (p.images || []).map((i) => ({ image_path: i.image_path, altText: i.altText || null })),
+      variants: chosen
+        ? [{ id: chosen.id, options: chosen.options || [], quantity: chosen.quantity }]
+        : [],
+    };
+  });
 
   return NextResponse.json(mapped);
 }

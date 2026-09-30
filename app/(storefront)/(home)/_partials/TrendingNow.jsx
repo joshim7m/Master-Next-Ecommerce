@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useState, useCallback } from 'react';
 import TrendingCard from '../../../../src/components/storefront/TrendingCard';
 
-const LOAD_MORE_SIZE = 6;
+const PAGE_SIZE = 10;
+const LOAD_MORE_SIZE = 5;
 
 function SkeletonCard({ index }) {
   return (
@@ -23,11 +24,11 @@ function SkeletonCard({ index }) {
 }
 
 export default function TrendingNow({ products = [] }) {
-  const initial = products.slice(0, 12);
+  const initial = products.slice(0, PAGE_SIZE);
 
   const [items, setItems] = useState(initial);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(initial.length === 12);
+  const [hasMore, setHasMore] = useState(initial.length === PAGE_SIZE);
 
   const loadMore = useCallback(async () => {
     if (loading) return;
@@ -61,7 +62,7 @@ export default function TrendingNow({ products = [] }) {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 md:gap-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 md:gap-6">
         {items.map((product, i) => (
           <div key={`${product.id}-${i}`} className="animate-fade-in">
             <TrendingCard product={product} index={i} />

@@ -71,7 +71,7 @@ export default async function HomePage({ searchParams }) {
       where: { status: 'publish' },
       include: { images: true, variants: true },
       orderBy: { createdAt: 'desc' },
-      take: 12,
+      take: 15,
     }),
     prisma.heroSlider.findMany({ where: { isActive: true }, orderBy: { order: 'asc' } }),
     prisma.promoBanner.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'asc' } }),

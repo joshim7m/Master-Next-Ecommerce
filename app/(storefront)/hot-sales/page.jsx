@@ -90,7 +90,7 @@ export default async function HotSalesPage() {
           <p className="text-muted dark:text-dark-muted">No products available yet — check back soon.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 md:gap-6">
           {serialized.map((product, i) => (
             <div key={product.id} className="animate-fade-in">
               <TrendingCard product={product} index={i} />

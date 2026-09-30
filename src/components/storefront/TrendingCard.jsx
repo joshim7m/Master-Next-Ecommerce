@@ -1,23 +1,29 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
-import { ShoppingCart, Check } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { addToCart, productToCartItem } from '../../lib/cartStorage';
 import { toggleWishlist, loadWishlist } from '../../lib/wishlistStorage';
 import { pushDataLayer } from '../../lib/gtm';
 
 export default function TrendingCard({ product, index = 0 }) {
+  const router = useRouter();
   const [loaded, setLoaded] = useState(false);
   const [wishlisted, setWishlisted] = useState(false);
   const [added, setAdded] = useState(false);
   const imgRef = useRef(null);
+  const addedTimer = useRef(null);
 
   const price = Number(product.sale_price || product.unite_price);
   const originalPrice = product.sale_price ? Number(product.unite_price) : null;
   const firstImage = product.images?.[0]?.image_path;
   const variant = product.variants?.find((v) => v.isDefault) || product.variants?.[0] || null;
   const variantName = variant ? ((variant.options || []).filter(Boolean).join(' / ') || 'Default') : 'Default';
+
+  // Same rule the product page uses (ProductInfo.jsx): the variant's own stock
+  // wins, and a product with no stock recorded is treated as unavailable.
+  const inStock = (variant?.quantity ?? product.quantity ?? 0) > 0;
 
   useEffect(() => {
     if (imgRef.current?.complete) setLoaded(true);
@@ -30,18 +36,23 @@ export default function TrendingCard({ product, index = 0 }) {
     return () => window.removeEventListener('wishlist-updated', handler);
   }, [product.id]);
 
+  useEffect(() => {
+    return () => {
+      if (addedTimer.current) clearTimeout(addedTimer.current);
+    };
+  }, []);
+
   const handleWishlist = (e) => {
     e.preventDefault();
     e.stopPropagation();
     toggleWishlist(product.id);
   };
 
-  const handleAddToCart = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
+  // Shared by both CTAs so "Order Now" can't drift from "Add to Cart" — same
+  // payload, same analytics. `productToCartItem` picks the same default variant
+  // `addToCart` merges on, so the two can't produce separate cart lines.
+  const addItem = useCallback(() => {
     addToCart(productToCartItem(product));
-    setAdded(true);
-    setTimeout(() => setAdded(false), 1500);
 
     pushDataLayer('add_to_cart', {
       ecommerce: {
@@ -54,7 +65,30 @@ export default function TrendingCard({ product, index = 0 }) {
         }],
       },
     });
+  }, [product, price, variantName]);
+
+  const handleAddToCart = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    addItem();
+    setAdded(true);
+
+    if (addedTimer.current) clearTimeout(addedTimer.current);
+    addedTimer.current = setTimeout(() => setAdded(false), 1500);
   };
+
+  const handleOrderNow = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Cart is written synchronously, so the checkout page reads the item on mount.
+    addItem();
+    router.push('/checkout');
+  };
+
+  const ctaBase =
+    'flex h-9 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition active:scale-[0.98]';
 
   return (
     <div
@@ -103,32 +137,57 @@ export default function TrendingCard({ product, index = 0 }) {
             {product.title}
           </h3>
         </Link>
-        <div className="mt-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold text-primary sm:text-lg">
-              ৳{price.toLocaleString()}
+
+        {/* Price — kept on its own row so the CTA footer below has a full line */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-semibold text-primary sm:text-lg">
+            ৳{price.toLocaleString()}
+          </span>
+          {originalPrice && (
+            <span className="text-xs text-muted line-through sm:text-sm dark:text-dark-muted">
+              ৳{originalPrice.toLocaleString()}
             </span>
-            {originalPrice && (
-              <span className="text-xs text-muted line-through sm:text-sm dark:text-dark-muted">
-                ৳{originalPrice.toLocaleString()}
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={handleAddToCart}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ease-out hover:scale-110 hover:shadow-md active:scale-90 ${
-              added
-                ? 'bg-success/15 text-success dark:bg-success/25'
-                : 'bg-secondary/10 dark:bg-secondary/20 text-secondary hover:bg-secondary hover:text-white'
-            }`}
-          >
-            {added ? (
-              <Check size={18} strokeWidth={2.5} />
-            ) : (
-              <ShoppingCart size={18} />
-            )}
-          </button>
+          )}
+        </div>
+
+        {/* ── CTA footer: Add to Cart (outline) + Order Now (solid) ── */}
+        <div className="mt-auto flex flex-col gap-1.5 border-t border-border/60 pt-2.5 dark:border-dark-border/60">
+          {inStock ? (
+            <>
+              <button
+                type="button"
+                onClick={handleAddToCart}
+                aria-label="Add to cart"
+                className={`${ctaBase} ${
+                  added
+                    ? 'border border-success bg-success/10 text-success'
+                    : 'border border-primary bg-white text-primary hover:bg-primary hover:text-on-primary dark:border-primary/60 dark:bg-dark-card dark:text-primary dark:hover:bg-primary dark:hover:text-on-primary'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[16px]" style={added ? { fontVariationSettings: "'FILL' 1" } : undefined}>
+                  {added ? 'check' : 'shopping_cart'}
+                </span>
+                {added ? 'Added' : 'Add to Cart'}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOrderNow}
+                aria-label="Order now"
+                className={`${ctaBase} border border-primary bg-primary text-on-primary shadow-[0_4px_14px_-4px_rgba(13,148,136,0.5)] hover:bg-primary/90 hover:shadow-[0_6px_18px_-4px_rgba(13,148,136,0.6)] dark:bg-primary dark:text-on-primary dark:hover:bg-primary/90`}
+              >
+                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
+                Order Now
+              </button>
+            </>
+          ) : (
+            <div
+              className={`${ctaBase} border border-border bg-border text-muted dark:border-dark-border dark:bg-dark-border dark:text-dark-muted`}
+              aria-disabled="true"
+            >
+              Out of Stock
+            </div>
+          )}
         </div>
       </div>
     </div>
