@@ -51,7 +51,7 @@ export default function ProductInfo({ form, onChange, categories, selectedCatego
         </div>
         <div className="sm:col-span-2">
           <label className={labelCls}>Tags / Keywords <span className="text-slate-400 normal-case">(comma-separated, for SEO)</span></label>
-          <input name="tags" value={form.tags || ''} onChange={onChange} className={inputCls} placeholder="e.g. sleepwear, women nightwear, buy online BD, eghuri" />
+          <input name="tags" value={form.tags || ''} onChange={onChange} className={inputCls} placeholder="e.g. sleepwear, nightwear, buy online BD" />
         </div>
         <div>
           <label className={labelCls}>Price (&#x9F3;)</label>

@@ -3,8 +3,6 @@ import ProductGrid from '../(home)/_partials/ProductGrid';
 
 export const metadata = {
   title: 'New Arrivals',
-  description:
-    'Browse our newest arrivals — freshly added pieces at the best prices, cash on delivery and discreet shipping across Bangladesh.',
 };
 
 export const dynamic = 'force-dynamic';

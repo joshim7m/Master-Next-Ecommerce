@@ -2,7 +2,7 @@
 
 A living document tracking the status of all project tasks for the Eghuri ecommerce application.
 
-**Last Updated:** 2026-09-26 (Session 6 — upsell bundles implemented)
+**Last Updated:** 2026-10-07 (courier booking: Steadfast booking modal + status sync)
 
 ## Project Phases
 
@@ -27,14 +27,30 @@ Inventory sync, fulfillment workflows, customer accounts, reviews.
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Prisma schema (20 models) | ✅ Done | See `schema.prisma`; documented in `data-model.md` |
-| Database migrations | ✅ Done | 2 migrations under `prisma/migrations/` — `init`, then `add_product_upsells` |
+| Prisma schema (22 models) | ✅ Done | See `schema.prisma`; documented in `data-model.md` |
+| Database migrations | ✅ Done | 4 migrations under `prisma/migrations/` — `20261004123354_init` (consolidated baseline), `20261005122155_add_order_discount`, `20261007051530_add_page_model` (CMS `Page` table), `20261007144130_add_courier_booking` (courier bookings). Earlier `20260924100811_init` / `20260926071426_add_product_upsells` were replaced by the consolidated baseline (**uncommitted**) |
+| CourierBooking table | ✅ Done | One booking per order (`orderId @unique`), `provider` + `consignmentId` compound-unique, raw `courierStatus` + `lastSyncedAt` + `lastEventKey` (webhook idempotency); migration `20261007144130_add_courier_booking` |
 | ProductUpsell table | ✅ Done | Curated cross-sell links, `20260926071426_add_product_upsells`; both relations cascade |
 | Seed pipeline (scraper-based) | ✅ Done | `seed.js` → `seedSettings` + `seedCatalog` + `seedBlog`; see `seeding.md` |
 | Catalog scraper (`fetchCatalog.js`) | ✅ Done | Cheerio scraper for eghuri.com → `catalogData.json` |
 | Bengali content processing | ✅ Done | `processCatalog.js` EN→BN tags/meta; Bengali blog posts in `seedBlog.js` |
 | SiteSetting singleton | ✅ Done | Identity, contact, announcement, Telegram/GTM/WhatsApp config |
 | BlockedDevice table | ✅ Done | Fraud blocklist keyed by FingerprintJS hash |
+
+---
+
+## Plans
+
+| Plan | Status | Summary |
+|------|--------|---------|
+| `plan-dashboard-analytics.md` | Implemented | `/admin/dashboard`: "Orders by Day & Hour" floating-bar heat map (X = Sat…Fri current week, Y = clock time), Product of the Month, four linked stat cards |
+| `plan-sales-report.md` | Implemented | Date-filtered order report + courier XLSX export |
+| `plan-upsell-bundles.md` | Implemented | "Frequently Bought Together" cross-sell blocks |
+| `plan-site-settings-dynamic.md` | Implemented | Site settings driving layouts/SEO/footer |
+| `plan-invoice-download.md` | Implemented | Per-order Bangla invoice: browser-print (vector, zero-dep) + `html2canvas`/`jspdf` one-click download; Hind Siliguri; logo/company info from Site Setting |
+| `product-description-specification.md` | Implemented | Tiptap rich-text product descriptions |
+| `catalog-import-export.md` | Implemented | Five-CSV slug-keyed catalog archive round-trip |
+| `plan-courier-booking.md` | Implemented | Multi-courier booking: "Courier Booking" button + modal on `/admin/orders/[orderNo]` with a **Select Courier** dropdown (Steadfast · Pathao · REDX; Steadfast implemented first, others disabled pending credentials), `CourierBooking` table with `provider`, provider-routed webhooks + manual status sync mapped two-way onto `orderStatus` |
 
 ---
 
@@ -53,7 +69,8 @@ Inventory sync, fulfillment workflows, customer accounts, reviews.
 | Thank You | ✅ Done | Order number display |
 | Wishlist | ✅ Done | `/wishlist`, hydrated via `POST /api/wishlist` |
 | Blog listing/categories/post | ✅ Done | Load-more pagination, ad injection, reading time, related posts |
-| Static pages (about/contact/privacy/terms) | ✅ Done | |
+| Static pages (about/contact/privacy/terms) | ✅ Done | Hardcoded prose pages |
+| CMS pages (`/pages/[slug]`) | ✅ Done | Editable from admin; only published pages render (drafts 404), metadata/OG/canonical generated |
 | 404 page | ✅ Done | Custom `not-found.jsx` |
 | Loading skeletons | ✅ Done | `loading.js` on home/products/categories routes |
 
@@ -61,8 +78,8 @@ Inventory sync, fulfillment workflows, customer accounts, reviews.
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Header | ✅ Done | Live search autocomplete, dark toggle, wishlist/cart icons — **redesign in progress** |
-| Footer | ✅ Done | Social links, Bangladesh branding — **redesign in progress** |
+| Header | ✅ Done | Live search autocomplete, dark toggle, wishlist/cart icons, **Collections mega-menu** — **redesign in progress** |
+| Footer | ✅ Done | Social links, company links from admin-managed Pages, Bangladesh branding — **redesign in progress** |
 | CartDrawer | ✅ Done | Slide-out mini cart synced via `cart-updated` event |
 | AnnouncementBar | ⚠️ Built, disabled | Wired but commented out in Header — **being redesigned and enabled** |
 | ProductGallery / ImageGallery | ✅ Done | In product partials |
@@ -76,6 +93,7 @@ Inventory sync, fulfillment workflows, customer accounts, reviews.
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Cart state (localStorage) | ✅ Done | `src/lib/cartStorage.js` |
+| Category mega-menu | ✅ Done | `CategoryMegaMenu.jsx` on the Collections nav trigger — one column per parent category with its subcategories. Tree built server-side by `buildCategoryTreeForMenu()` (`src/lib/categoryTree.js`). Desktop only (`lg+`); mobile uses the drawer |
 | Wishlist (localStorage) | ✅ Done | `src/lib/wishlistStorage.js` + hydration API |
 | Variant pricing logic | ✅ Done | Variant override or base price, discount amount/% |
 | Delivery charge selection | ✅ Done | Inside Dhaka ৳50 / Outside ৳120 |
@@ -96,17 +114,21 @@ Inventory sync, fulfillment workflows, customer accounts, reviews.
 |------|--------|-------|
 | JWT authentication (login/logout/me) | ✅ Done | `jose` HS256, httpOnly cookie, 8h expiry |
 | Route protection (`proxy.js`) | ✅ Done | Next 16 middleware equivalent guarding `/admin/:path*` |
-| Dashboard (stats + recent orders) | ✅ Done | |
+| Dashboard (stats + chart) | ✅ Done | 4 linked stat cards, Orders by Day & Hour (floating-bar heat map, X = weekday / Y = clock time, BD time), Product of the Month |
 | Products CRUD with variants | ✅ Done | Variant generator, image diffing on update |
 | Product description + specification rich text | ✅ Done | TipTap v3 editors in collapsible `RichEditorSection`s; HTML stored in `Product.description` / `Product.specification`, rendered on the storefront Description/Specifications tabs. See `product-description-specification.md` |
 | Multi-image upload | ✅ Done | `/api/admin/upload`, type whitelist, 5MB max |
 | Categories CRUD (hierarchical) | ✅ Done | Parent/child management |
 | Orders list/detail/search | ✅ Done | Status updates, item qty editing, totals recompute |
+| Order discount (flat ৳ amount) | ✅ Done | `OrderDetails.discount`; editable on the detail page while not completed/cancelled; capped at `subtotal + delivery` |
+| Order invoice download (Bangla PDF) | ✅ Done | `/admin/orders/[orderNo]/invoice` — bare A4 sheet from `InvoiceDocument`, Hind Siliguri, logo/company from Site Setting. Two output paths: **Print** (vector, selectable text) and **Download PDF** (`html2canvas`→`jspdf` raster, dynamic imports only) |
+| Courier booking + status sync | ✅ Done | "Courier Booking" button + modal on `/admin/orders/[orderNo]`: Select Courier dropdown (Steadfast · Pathao · REDX, latter two disabled pending credentials), prefilled booking form, booking info panel, Sync button, tracking timeline. Webhook `POST /api/webhooks/courier/[provider]` (HMAC-SHA256 + Bearer, fail-closed, idempotent). Two-way status map with guards in `src/lib/courierStatus.js`. See `plan-courier-booking.md` |
 | Device blocking/unblocking | ✅ Done | `BlockedDevice` + checkout rejection |
 | Blog categories/posts/advertisements CRUD | ✅ Done | Tiptap editor, ad linking multiselect |
 | Settings: site identity | ✅ Done | Name, logo, favicon, contact, announcement, about (EN/BN) |
 | Settings: site-config integrations | ✅ Done | Telegram token/chat (+test), GTM ID, WhatsApp number |
 | Settings: hero sliders CRUD | ✅ Done | |
+| Settings: pages CRUD (CMS) | ✅ Done | Name, slug (unique), Tiptap content, meta description, publish/draft; storefront `/pages/[slug]` renders published pages |
 | Settings: social links CRUD | ✅ Done | |
 | Settings: DB backup/restore | ✅ Done | pg_dump download / .sql restore upload (**uncommitted**) |
 | Admin dark mode | ✅ Done | ThemeProvider context + toggle |
@@ -128,6 +150,7 @@ All endpoints implemented and documented in `docs/architecture.md`. Summary:
 | Admin settings APIs (site, site-config+test, hero-sliders, social) | ✅ Done | |
 | Admin upload API | ✅ Done | Multi-file → `public/uploads/` |
 | Admin backup API | ✅ Done | **Uncommitted work** |
+| `POST /api/webhooks/courier/[provider]` | ✅ Done | Public, signature-verified (Steadfast: `Authorization: Bearer` + `X-Signature` HMAC-SHA256 over raw body, fail-closed without a stored webhook token); `pathao`/`redx` acknowledged-but-unimplemented; applies the §6.1 status map through the same guarded code path as the manual Sync button |
 
 ---
 
@@ -166,7 +189,7 @@ All endpoints implemented and documented in `docs/architecture.md`. Summary:
 |------|--------|-------|
 | Vercel deployment config | ✅ Done | Minimal `next.config.mjs`, `postinstall: prisma generate` |
 | Production database | ✅ Done | External PostgreSQL via `DATABASE_URL` |
-| Environment variables | ✅ Done | `.env` with DATABASE_URL (integration tokens live in DB) |
+| Environment variables | ✅ Done | `.env` holds only DATABASE_URL/JWT_SECRET — courier credentials live in the DB (Settings → Courier Services), removed from `.env` permanently |
 | SEO infrastructure | ✅ Done | Sitemap, robots, OG images, JSON-LD |
 | CI/CD (GitHub Actions) | ❌ Not Started | Lint/build/test pipeline |
 | Monitoring & error tracking | ❌ Not Started | GTM analytics only; no error tracking yet |
@@ -179,6 +202,7 @@ All endpoints implemented and documented in `docs/architecture.md`. Summary:
 | Task | Status | Notes |
 |------|--------|-------|
 | All 10 docs refreshed to match codebase | ✅ Done | Session 2026-08-21: overview, architecture, data-model, frontend-architecture, admin-panel, seeding, ai-workflow-rules, ui-context, testing, progress-tracker |
+| Order invoice plan documented before implementation | ✅ Done | `plan-invoice-download.md` (2026-10-05) — records *why* pure-JS PDF libraries cannot render Bangla, so the constraint is not re-litigated later |
 
 ---
 
@@ -206,11 +230,15 @@ All endpoints implemented and documented in `docs/architecture.md`. Summary:
 
 ## Next Steps
 
-1. Complete storefront redesign — Header, Footer, config (Phase 3, current)
-2. Homepage section redesign — Hero, categories, product grid, promo banner (Phase 3)
-3. Payment gateway integration (Phase 4)
-4. Set up test framework + CI pipeline
-5. Customer accounts & order history
+1. **Add an auth guard to `/api/admin/*`** — the proxy matcher only covers `/admin/:path*`, so every admin API route is currently self-unguarded (flagged in `plan-invoice-download.md` §7)
+2. **Investigate order 958970's stored `total`** — 2050, but `subtotal + delivery` derives to 2080. Predates the discount work; some earlier path wrote `total` without recalculating
+3. Point `SiteSetting.logo` at a file that exists — it resolves to `/uploads/settings/eghuri-logo.png`, which 404s (the invoice falls back to the site name, but so does the storefront header and admin sidebar)
+4. Apply `font-bangla` to Bangla content outside the invoice, so storefront/admin Bangla stops relying on OS fallback fonts
+5. Complete storefront redesign — Header, Footer, config (Phase 3, current)
+6. Homepage section redesign — Hero, categories, product grid, promo banner (Phase 3)
+7. Payment gateway integration (Phase 4)
+8. Set up test framework + CI pipeline
+9. Customer accounts & order history
 
 ---
 
@@ -224,6 +252,145 @@ All endpoints implemented and documented in `docs/architecture.md`. Summary:
 ---
 
 ## Session Log
+
+### 2026-10-07 — Courier Booking (Steadfast first, Pathao/REDX stubs) + Status Sync
+- **Implemented `plan-courier-booking.md` in full.** Admin opens `/admin/orders/[orderNo]` → **Courier Booking** button → modal with a **Select Courier** dropdown (Steadfast · Pathao Courier · REDX Delivery; Pathao/REDX disabled with "credentials pending"), a booking form prefilled from `order.details` (name/phone/address/COD/items summary), and — once booked — a booking info panel (consignment, tracking code/link, badges, last synced), **Sync status** button and tracking timeline. The order page also gains a **Courier** summary card when a booking exists.
+- **Provider abstraction:** `src/lib/couriers/{index,errors,steadfast,pathao,redx}.js` — registry (`COURIERS`, availability from the stored CourierService rows) + 4-method adapter interface (`createOrder`, `statusByConsignment`, `trackings`, `healthCheck`). Enabling Pathao/REDX later = their adapter + their status-map row + their webhook signature branch + their credentials saved in Settings; UI needs no change. Steadfast adapter verified live (`get_balance` → ৳0, 401/no-retry, host-down, bogus-id paths all tested).
+- **Schema:** `CourierBooking` model (one per order via `orderId @unique`; `@@unique([provider, consignmentId])`; raw `courierStatus`, `lastSyncedAt`, `lastEventKey`) + `Order.courierBooking` back-relation; migration `20261007144130_add_courier_booking` created & applied.
+- **Status sync is guarded both ways** (`src/lib/courierStatus.js`, shared by webhook + manual Sync via `src/lib/courierSync.js#applyCourierStatus`): `incomplete` never touched; into an admin-set terminal state only `completed`/`return` may move it (a stray courier `pending` can't resurrect a cancelled order, a `cancelled` can't overwrite a completed one); `processing` is admin-owned (couriers may only complete/cancel/return it); approval-pending tiers update the badge only; unknown provider/status → no change + `unrecognized` flag.
+- **Webhook** `app/api/webhooks/courier/[provider]/route.js`: raw-body HMAC-SHA256 `X-Signature` + `Bearer` token, **fail-closed** when no webhook token is stored, `Idempotency-Key` replay protection stored on the booking (checked against the DB, not a possibly-stale object — a test caught exactly that), 2xx for anything merely unknown (4xx would stop Steadfast's retries), 5xx only for genuine handler failures (worth a retry).
+- **Secrets:** courier keys are DB-only — saved from Settings → Courier Services, never in `.env` or the client bundle (grepped `.next/static`: no key, no secret, not even `portal.packzy.com`).
+- **Credential source change (2026-10-08):** removed `.env` credentials entirely — `src/lib/couriers/credentials.js` now resolves from the `CourierService` row only; `.env` holds just DATABASE_URL/JWT_SECRET. Admin UI (create/edit) is the single place to manage keys.
+- **Verified:** 43 unit/integration tests (mapping guards, registry enablement, adapter error paths, full `applyCourierStatus` lifecycle on real DB rows) + 10 signed-webhook end-to-end tests against `next start` (delivered→completed, idempotent replay, tampered/missing/wrong-token signature→401, guard on `cancelled` after `delivered`, `tracking_update`, unknown consignment/event/JSON) — all pass, temp rows purged. `npm run build` clean; test scaffolding kept outside the repo in `/tmp/opencode/courier-test/`.
+- **Owner still needs to (plan §10):** complete Steadfast KYC/ownership (booking currently 403s), register the webhook at `steadfast.com.bd/user/webhook/add` with the Webhook Token saved in Settings → Courier Services (localhost can't receive webhooks — Sync button covers dev), and click through the modal UI checklist in plan §9.
+
+### 2026-10-07 — SEO "Unentered Content" Sweep (no hardcoded marketing in render output)
+- **Complaint:** view-source showed `<title>Chahida Ghor — Shop Lingerie, Bras, Panties & Nightwear Online in Bangladesh</title>`, a long "Discover Chahida Ghor — Bangladesh's favourite online destination…" description, and `<meta name="keywords" content="ELectoric Items"/>` — none of which was entered in the admin. Confirmed the DB is a **general store** (fridge locks, repellent, baby care…) and is **not** a lingerie store, so the copy was both unentered and factually wrong.
+- **Root causes:** homepage `app/(storefront)/(home)/page.jsx` hardcoded the title/description/OG; both layouts fell back to "…Online Lingerie & Women's Intimates Store in Bangladesh" + a 12-keyword default array; `SiteSetting.metaKeywords` contained seeded junk `"ELectoric Items"`; the OG route's fallback subtitle and bottom bar had marketing copy; JSON-LD (Organization, ItemList, CollectionPage, Blog) had hardcoded "lingerie/intimates" descriptions.
+- **Policy applied (aligned with `docs/seo.md` "no hardcoded brand in render output"):** titles compose `{page} | {siteName}` from admin values only; descriptions and keywords are emitted **only when the admin entered them** (new `seoDescription`/`seoKeywords` helpers in `src/lib/siteSettings.js`); everything else omitted or siteName-derived.
+- **Files changed:** `src/lib/siteSettings.js` (helpers) · `app/layout.jsx` · `app/(storefront)/layout.jsx` (also stripped hardcoded Organization description) · `app/(storefront)/(home)/page.jsx` (metadata + ItemList name + PromoBanner trust chips/copy) · categories listing + detail · blogs listing + category + categories · about (metadata + neutral fallback text) · products + products/[slug] (dropped hardcoded keyword array + invented description) · new-arrivals/hot-sales (dropped marketing descriptions) · `app/api/og/route.js` (neutral subtitle + bottom-bar tagline) · admin SEO/promo/tags placeholders · `docs/seo.md` (policy + templates).
+- **DB:** cleared `metaKeywords` (`"ELectoric Items"` → `""`); deleted 2 seeded hero slides + 3 `@eghuri` social links; blanked `aboutCompany`/`aboutCompanyBn`, `copyrightText`, `email`, `mobile`, `announcementText`. Homepage hero now falls back to real product images; footer renders `© {currentYear} Chahida Ghor` (already supported fallback) and hides empty contact/social rows.
+- **Verified over HTTP:** all storefront routes have **0** marketing-copy matches (`lingerie|intimat|eghuri|picsum|ELectoric|discreet|…`); homepage head = `<title>Chahida Ghor</title>` with description/keywords/og:description absent (nothing admin-entered, nothing invented); remaining pages `{page} | Chahida Ghor`. OG route returns 200 image/png.
+- **Still to review (awaiting user):** `siteUrl` is null + `NEXT_PUBLIC_SITE_URL` unset → canonical/og:url still point at placeholder `https://radiantpicks.com` — needs the real domain (Admin → Site Config or .env); `address: "Dhaka, Bangladesh"` kept (generic/true).
+- **Not browser-verified** (no desktop browser attached).
+
+### 2026-10-07 — Storefront Page (`/pages/[slug]`) Redesigned to Site Container
+- **The CMS page detail was the odd one out.** `/pages/[slug]` was written against the pre-redesign slate palette (`text-slate-900`, `px-2 … lg:px-8`, inline SVG chevrons) — the same stale shell as the hardcoded `/privacy` `/terms` — while the rest of the storefront is on the Material-3 token system. Requested: mobile-first, and the same container box the other pages use.
+- **Canonical container adopted:** the site's standard card — `rounded-2xl border border-border bg-white shadow-ambient dark:border-dark-border dark:bg-dark-card` — inside the `max-w-4xl px-page-margin-mobile sm:px-4` shell (8px mobile gutter token first, so the layout is mobile-first by construction).
+- **Structure follows feedback:** originally the blog-style breadcrumb bar + a header zone with a "Last updated" line were included; on request both were removed. The page is now just the container card: `font-display text-headline-md sm:text-headline-lg` title in a divided header zone, then the prose body using the blog's exact prose classes (`prose-headings:text-on-surface prose-a:text-primary … dark:prose-invert dark:prose-headings:text-dark-text`).
+- **Verified over HTTP** (`/pages/privacy-policy` → 200): container card, `dark:bg-dark-card`, token headline, and prose classes all present; **0** breadcrumb/`chevron_right` markers and **0** "Last updated"/`update`-icon markers; no stale slate classes (`text-slate-900` / `text-slate-500` / `px-2 py-12`); real page content (`<h2>`s) renders inside the box. **Not browser-verified** — no desktop browser attached.
+
+### 2026-10-07 — Storefront Footer: Company Links Driven by Admin Pages
+- **The footer's Company column was four hardcoded links** — `About Us` `/about`, `Contact Us` `/contact`, `Privacy Policy` `/privacy`, `Terms of Service` `/terms`. Requested: remove them and link the admin-managed Pages instead.
+- **`Footer` is a client component fed by the server layout**, so the layout (`app/(storefront)/layout.jsx`) now fetches published pages in its existing `Promise.all` (`prisma.page.findMany({ where: { status: 'publish' }, select: { id, name, slug }, orderBy: { name: 'asc' } })`, `.catch(() => [])`) and passes `pages` to `<Footer>`. The Company column renders one `<Link href={/pages/${page.slug}}>` per page; drafts are excluded, and nothing renders when there are no published pages.
+- **Verified over HTTP against the live DB**: seeded one published + one draft page — the homepage footer rendered `Privacy Policy → /pages/privacy-policy` (a page created from the admin since the CMS work) plus the published fixture, the draft was absent, and zero `/about | /contact | /privacy | /terms` anchors remained. Fixtures deleted; only the real Privacy Policy row remains. Homepage 200 (layout + footer compiled). **Not browser-verified** — no desktop browser attached.
+- **Follow-up flagged**: the hardcoded `/about`, `/contact`, `/privacy`, `/terms` routes and the sitemap entries for them still exist — removing them (and pointing customers at `/pages/…`) is a separate call. Until matching CMS pages are created, the footer Company column only lists what exists, so on a fresh DB it is empty by design.
+
+### 2026-10-07 — Admin Settings: Editable Pages (CMS)
+- **The sidebar's "Pages" entry was a dead link.** `AdminSidebar` already listed `{ label: 'Pages', href: '/admin/settings/pages', icon: 'pages' }`, but no route existed and `pages` was missing from both `ICON_PATHS` and `iconColors` — so the nav item rendered with a **null icon**. The requested feature: create pages like **Privacy Policy** with a name, a slug, and rich-text content.
+- **New `Page` model** (`prisma/schema.prisma`) — `name`, `slug @unique`, `content` (Tiptap HTML), `metaDescription?` (SEO), `status` default `"publish"`, timestamps. Migration `20261007051530_add_page_model` created and applied; Client regenerated. Default status is `publish` (not the blog's `draft`), because these are mostly legal pages an admin creates once and leaves live — a new page that silently 404s on the storefront would be the trap.
+- **Server actions** (`src/actions/pages.js`, `'use server'`, mirrors `blog.js`): `getPages`, `getPageBySlug`, `createPage`, `updatePage`, `deletePage`. Slug is trimmed + lowercased; mutations `revalidatePath` the admin list and `/pages/[slug]` (plus the old slug path when it changes). Duplicate-slug `P2002` is surfaced to the form as a readable inline error instead of the blog pattern's silent `catch {}` — with page counts this small, a slug collision is the most likely failure and should not fail invisibly.
+- **Admin UI at `/admin/settings/pages`** (`page.jsx` list, `create/page.jsx`, `edit/[slug]/page.jsx`) following the blog CRUD pattern: searchable/filterable table with Status badge, updated date, and view/edit/delete actions; create/edit forms use the shared `TipTapEditor`. Added header titles for the three routes in `app/admin/layout.jsx`. Added the `pages` icon (document glyph) + a yellow colour chip to the sidebar so the previously icon-less entry renders properly.
+- **Storefront rendering at `/pages/[slug]`** — new server component (cached `getPublishedPage`): only `status: 'publish'` pages render, drafts and unknown slugs `notFound()`; `generateMetadata` emits absolute title, description (from `metaDescription` or stripped content), canonical, and OG tags. Content is rendered in the same `prose` wrapper the hardcoded privacy/terms pages use. The existing hardcoded `/privacy`, `/terms`, `/about` routes are untouched.
+- **Verified against live Postgres** (real `@prisma/client`, `node --env-file`): create → storefront-lookup → draft-hidden → update → unique-slug-enforced → delete, all 7 checks pass; fixture rows cleaned up. `npm run build` clean (dev server stopped for the build and restarted after). **Not browser-verified** — no desktop browser attached to this session, so the admin forms and `/pages/[slug]` rendering were not clicked through on screen; the Tiptap editor remains verified only at the API/DB level (same caveat as prior sessions).
+- Docs updated: `data-model.md` (Page model + missing `PromoBanner` documented so the 21-model count is honest; migration history), `admin-panel.md` (routes table + Content Pages section), `progress-tracker.md` (this entry, migrations row, admin + storefront rows).
+- Follow-ups left alone: footer/sitemap still point at the hardcoded `/privacy` `/terms` (a page uploaded as `privacy-policy` is only reachable at `/pages/privacy-policy`); the `/pages` index route does not exist, so the breadcrumb links Home → page name only.
+
+### 2026-10-07 — Dashboard Chart: Saturday-first Week
+- **Requested: "the chart's date should start from Sat, Sun, Mon".** The x axis used to follow the trailing window `[today − 6d, now]`, so on a Wednesday it read `Thu, Fri, Sat, Sun, Mon, Tue, Wed`. The product owner wants the Bangladesh week layout — Monday-to-Friday work week with Saturday-Friday weekend — so the seven columns are now **always Sat → Fri**.
+- **Asked the owner how to keep both "start at Sat" and "today on screen", because they cannot both be true on every weekday.** With a trailing 7-day window the starts rotate with today's weekday; with a fixed Sat-start week, days after today are necessarily future. The owner chose the **current Sat→Fri calendar week containing today**: `start = 00:00 BD on the most recent Saturday on-or-before today`, `end = 00:00 BD next Saturday`, so today is always present (partial after 12 AM) and the remaining days of the week show as empty columns until they arrive. On a non-Friday the window no longer coincides with a rolling 7-day span, so the caption changed from "last 7 days" to "this week" / the badge from "{n} last 7 days" to "{n} this week" — anything else would be a lie about what the columns are.
+- **Weekday order became a by-product of the window instead of a label mapping.** `daysSinceSaturday = (bdParts(now).weekday + 1) % 7` (Sun=0…Sat=6 → Sat=0…Fri=6) walks from this week's Saturday, and the label-array builder walks the same start date, so Sat…Fri falls out of the geometry with no re-sorting on the client. All timezone arithmetic stayed in the existing `bdParts`/`bdMidnightUtc` BD-offset helpers; the query now bounds `createdAt` by the whole week (`gte start, lt end`) rather than `lte now`, which keeps the query's meaning identical to the columns shown.
+- **Verified against the live DB.** `getOrdersByHourLast7Days` (real module, `next/cache` stubbed, sucrase): returns `Sat 10-03, Sun 04, Mon 05, Tue 06, Wed 07, Thu 08, Fri 09` — Sat-first, contains today, 7 × 16 = 112 buckets still present (8…23), `total` unchanged (7 orders: Mon 2, Tue 5). And component-level through sucrase + `react-dom/server` with `react-chartjs-2` captured: labels `Sat..Fri`, 112 floating blocks `[hour, hour+1]`, y min/max 8/24 with 17 ticks `8 AM…12 AM`, both tooltip callbacks, plus a real Chart.js instance over a stub 2d context (animation off, fixed size): y pixels shrink with later hours, the Mon 4 PM block (`y:[16,17]`) maps exactly to the 16→17 pixel interval, and all three Mon blocks share one column centre. 20/20 checks pass.
+- `npm run build` clean. **Not browser-verified** — no desktop browser attached to this session (same caveat as the initial chart work).
+- Docs updated: `plan-dashboard-analytics.md` (§1, §9, §11, §18, §28, status), `progress-tracker.md` (this entry + Plans row).
+
+### 2026-10-06 — Dashboard Analytics ("Orders by Day & Hour")
+- **The chart was measuring the wrong thing, and a second bug meant it may never have drawn at all.** Two separate defects, found by inspection before any edit, exactly as `plan-dashboard-analytics.md` §26 requires.
+- **Defect 1 — the axes were swapped in meaning.** The old `HourlyOrdersChart` used `indexAxis: 'x'`, put the seven weekday names on the x axis (correct), but then made **order count the vertical scale** and encoded the *hour* only as one of **sixteen separate datasets** told apart by a sixteen-entry colour legend. So the left axis read 0/1/2/3 orders, and "what time was this order placed" required matching a colour. Rewritten as a single dataset of **floating bars**: `{x: 'Mon', y: [15, 16], count: n}` — X = weekday category, Y = clock time on a linear axis fixed to `min: 8, max: 24`, `stepSize: 1`, not reversed. All 16 blocks of a day share one category label, so Chart.js gives them one x centre and they stack down the hour range, which is what makes a day read as a single column. `BarController.parseObjectData` + `isFloatBar` in `chart.js` handle `[start, end]` y values; verified in the installed 4.5.1 source before relying on it.
+- **Defect 2 — `BarController` was never registered**, so `new Chart(..., {type: 'bar'})` threw `"bar" is not a registered controller` and the card rendered blank. `react-chartjs-2` registers nothing for you and chart.js is imported from its tree-shaken ESM build, so nothing was auto-registered either. Found by loading the real component headlessly and constructing the chart over a stub 2d context — reading the code had not surfaced it. One-line fix.
+- **Volume is now colour only, never geometry.** Bar height is always exactly one hour, so a 1-order 3 PM block and a 5-order 3 PM block occupy the same 15→16 slot; only alpha changes (`0` → faint grid slot, `>0` → `0.3 + 0.7 × count/maxCount` on the existing `#2f0f6b`/`#a78bfa` admin accent). A tool or a dataset plugin was not added; the repo has no test framework and no charting convention beyond Chart.js.
+- **The seven-day window now includes today.** It previously ran `[today-7d, today-midnight)`, i.e. seven *complete* days, so everything ordered today was silently absent from a live dashboard — on the day this was checked, 2 of the 4 orders in the database (both placed that morning) were invisible. Now `[today-6d at 00:00 BD, now]`. The caption stays "last 7 days (Bangladesh time)", which is accurate; the last column is partial after 12 AM and that is intentional.
+- **All timezone and label work stayed server-side.** Added `bdDateKey()` beside the existing `bdParts`/`bdMidnightUtc`, and the action now also returns `weekday`, `dateLabel` and a **17-entry `hourLabels` boundary array** (`8 AM`…`12 AM`). The client formats nothing: the y-axis tick callback and the tooltip range both read that one array, which is why the tooltip says "3 PM – 4 PM" and not the plan's illustrative "3:00 PM – 4:00 PM" — §8's axis format is the mandatory one and a second formatter is the duplication §13 warns about. Buckets are `{hour, count}` objects (plan §3), 7 × 16 = 112 of them, pre-filled with zeros; the total excludes orders outside 08:00–23:59 rather than folding them into a neighbour.
+- **No schema change, no migration, no new dependencies** — Chart.js 4.5.1 and react-chartjs-2 5.3.1 were already installed. `/admin/orders?status=pending` already worked (the page reads the param and validates it against `orderStatuses`), so `app/admin/orders/page.jsx` was left alone, as were the stat cards and Product of the Month, which already matched §20–§22.
+- **Verified by driving the real code, not by reading it.** (1) The actual `getOrdersByHourLast7Days` against live Postgres, with throwaway orders at 15:20/15:45/15:59, 16:00, 23:59, 07:30, 02:00, an `incomplete`, a `cancelled`, one 8 days old, and one placed today: 3 orders in the 3 PM bucket, the 16:00 boundary in 4 PM, 07:30 and 02:00 absent (and *not* folded into 8 AM), incomplete excluded, cancelled counted, and `total` equal to an independent DB count. (2) The real component loaded through sucrase, its `options`/`data` handed to a genuine Chart.js instance over a stub context, then asserted on pixel geometry: y min 8 / max 24, 17 ticks `8 AM`…`12 AM`, 7 weekday ticks, every block's pixels round-tripping to its own hour interval, all 16 blocks of a day sharing one x centre, later hours drawn higher, and alpha monotonic in count — in both themes and at 360×460. All fixtures deleted; the table is back to its exact 4 orders.
+- **Not browser-verified** — no desktop browser is attached to this session. Hover, the tooltip's on-screen placement, and the mobile layout are asserted at the geometry and config level, not observed on screen. No lint script exists in this repo; `npm run build` is clean.
+- Docs updated: `progress-tracker.md` (this entry, Plans row, Dashboard row). `plan-dashboard-analytics.md` left as the written plan, since it documents the requirement rather than the result.
+
+### 2026-10-05 — Order Discount (Flat ৳ Amount)
+- **Added a per-order discount to the admin order detail page: a flat Taka amount, not a percentage.** Requested as "enter 10 taka, not 10%". Stored as `OrderDetails.discount` (Decimal, default `0`) — beside `deliveryCharge`, since that is the other admin-editable money field on the same record. Migration `20261005122155_add_order_discount`, created **and applied** with `prisma migrate dev`; `prisma migrate status` reports the DB in sync and the Client was regenerated. Existing orders get `discount = 0` and their stored `total` was left untouched.
+- **`Order.total` is derived, so it had to be derived in exactly one place.** Three separate call sites each recomputed `subtotal + deliveryCharge` inline, and a discount silently would have been dropped by two of them the next time an admin edited a quantity. Replaced with `recalculateOrderTotal(orderId)` in `src/actions/orders.js`, called from `updateOrderItemQuantity`, `deleteOrderItem`, and `updateOrderDetails`. A side benefit: `deleteOrderItem` used to compute the remaining subtotal from its pre-delete `include` and `updateOrderItemQuantity` re-read the whole order graph — both now just refetch what they need.
+- **The total can never go negative.** A discount is validated as a finite, non-negative number and then **capped server-side at `subtotal + deliveryCharge`** — the clamp is in the action, not only in the UI, because server actions are callable directly. The UI warns before saving when the entered amount exceeds that ceiling, and re-reads the saved value afterwards so a capped save shows what was actually stored rather than what was typed.
+- **Verified against the live DB** by driving the real action module with `next/cache` stubbed: discount `10` applied, total recalculated to `subtotal + delivery − 10`; a subsequent quantity bump kept the discount and moved the total correctly (the bug that motivated the shared helper); an over-limit request stored the capped value, not the raw one. Order 958970 was restored to `discount = 0` afterwards. `npm run build` clean.
+- **Not browser-verified** — no desktop browser is attached to this session, so the new field was not clicked through on screen. The action-level test above is the substitute, not a replacement.
+- No new dependencies. Docs updated: `data-model.md` (new field + an explicit "Order total is derived" section), `progress-tracker.md` (this entry, migration list corrected — it still named two migrations that no longer exist on disk).
+
+### 2026-10-05 — Invoice Download (Design + Plan)
+- **Designed the Bangla invoice and wrote `plan-invoice-download.md` before writing any code**, because the obvious approach cannot work and finding that out after building would have wasted the work.
+- **Bengali cannot be rendered by any pure-JS PDF writer.** It needs real text shaping — conjuncts (ক্ষ, র্ম, ণ্ড), reph, and pre-base `ে`/`ৈ` reordering. `jspdf`, `pdf-lib`/`@react-pdf`, and `pdfmake` all embed a TTF and then emit glyphs in logical order with no shaping, so the output is visibly broken. Only the browser (print engine / canvas) or headless Chrome shapes it correctly. That single constraint rules out the most obvious "just add jsPDF" design.
+- **No PDF infrastructure existed to reuse** — no PDF library in `package.json`, no `window.print()`, and **zero** `@media print` in the repo. The `src/lib/xlsx.js` hand-rolled-writer precedent set the house style for file generation.
+- **Chose to ship both output paths** rather than pick one: a print route (zero deps, vector text, selectable, tiny file) and a `html2canvas` + `jspdf` one-click download (raster, ~150 DPI, not selectable). The second is the only place new dependencies appear (2 packages), and its quality ceiling is documented rather than glossed over.
+- **Verified the font facts instead of assuming them:** fetched the Google Fonts CSS API and confirmed Hind Siliguri ships its Bengali subset as a single 66 KB variable woff2 covering all four weights, with a `unicode-range` that leaves Latin falling through to Inter. The owner named "Bangla Sans" or Hind Siliguri — "Bangla Sans" is not a Google Fonts family, so Hind Siliguri is the nearest real match (`Baloo Da 2` was the runner-up and is too rounded for an invoice).
+- **Auth note that shaped the route choice:** the proxy matcher is `/admin/:path*` only, so `/api/admin/*` is **self-unguarded** — and invoices carry customer name, phone and address. Putting the invoice under `/admin/orders/[orderNo]/invoice` gets it guarded by the existing matcher for free. The unguarded `app/api/admin/settings/site/route.js` is flagged in the plan as a separate fix.
+- Docs updated: `plan-invoice-download.md` (new), `progress-tracker.md` (this entry + a Not Started row under Admin Panel Development).
+
+### 2026-10-05 — Invoice Download (Implementation)
+- **Shipped the plan as written.** `src/components/admin/InvoiceDocument.jsx` (server, presentational A4 sheet), `app/admin/orders/[orderNo]/invoice/page.jsx` (server route), `InvoiceActions.jsx` (toolbar), `src/lib/invoicePdf.js` (raster capture). Added `Hind Siliguri` to the root font link and a `bangla` token in `tailwind.config.js` — deliberately *not* folded into `sans`, so the existing storefront stacks cannot shift.
+- **Two output paths, because they trade off differently.** Print gives vector, selectable text. Download PDF gives a file. The raster cost is stated in the UI itself ("The downloaded PDF is an image of this page") and in `invoicePdf.js`'s header comment rather than left for someone to discover.
+- **The invoice renders bare — no sidebar, no header.** Added an `isBare` branch to `app/admin/layout.jsx` (folding in the existing `isLogin` case) instead of hiding chrome with print CSS. Hiding it would still have left the chrome in the captured raster, bloating the PDF with the admin UI.
+- **`html2canvas`/`jspdf` are dynamically imported inside the handler.** Confirmed by grepping the built output: neither the order detail page nor the storefront references the invoice chunk, and the PDF libraries do not appear in any eager chunk. The dependency cost is confined to the one page that needs it.
+- **The print CSS is scoped to invoice classes** (`.invoice-sheet`, `.invoice-row`, `.invoice-table`, `.no-print`) rather than using bare element selectors — the repo had zero `@media print` rules, and unscoped ones would silently change behaviour anywhere they were added later.
+- **The stored logo is dead, and that mattered more than expected.** `SiteSetting.logo` points at `/uploads/settings/eghuri-logo.png`, which 404s — nothing by that name is on disk. Harmless on screen, but a broken-image box on a printed document handed to a customer is not. The route now `stat`s the file and drops the logo when it is missing, falling back to the site name; absolute URLs are passed through unverified. Same stale value also breaks the storefront header and admin sidebar — flagged in Next Steps rather than silently fixed, since which of the 12 uploaded files is the real logo is the owner's call.
+- **Verified by rendering real pages, not by reading code.** Seeded three throwaway orders (cancelled-with-discount, 46-item long order for multi-page, zero-discount free-delivery), fetched each invoice over HTTP as an authenticated admin, and asserted on the server-rendered HTML: Bangla labels intact, watermark present only when cancelled, discount row present only when `discount > 0`, 46/46 rows, no `jwtSecret`/`telegramBotToken`/`telegramChatId` in any response, no stale logo. Scratch orders and the temporary QA user were deleted afterwards; orders 958970 and 572979 confirmed back at their exact prior state.
+- **Confirmed the auth path holds.** Unauthenticated request to `/admin/orders/958970/invoice` 307s to the login page — the proxy matcher covers it because the route lives under `/admin`, not `/api/admin`. Unknown order number 404s via `notFound()`.
+- **Two bugs found and fixed during the build.** First, `isInvoice` was referenced before its `const` declaration in `app/admin/layout.jsx` — a TDZ error that only surfaced as `ReferenceError: Cannot access 'l' before initialization` during prerender. Second, the `Suspense` boundary that `useSearchParams` requires was wrapping the whole page with `fallback={null}`, which would have left the sheet out of the server-rendered HTML; it is now scoped to the toolbar alone.
+- **Three of my own test assertions were wrong, not the code.** React splits adjacent text nodes with `<!-- -->` comments, so `−৳250` is `−<!-- -->৳250` in the markup — the checks were matching the wrong thing until I normalised the comment markers. Worth recording because the same trap will catch the next person writing HTML assertions against a React-rendered page.
+- `npm run build` clean. **Still not browser-verified** — no desktop browser is attached to this session, so the printed output and the generated PDF have not been seen on screen. HTML, CSS, and HTTP behaviour are verified; visual fidelity is not.
+
+### Session 2026-10-04 (Wishlist Count Badge Fixed)
+- **The header's heart badge reported 13 while `/wishlist` rendered 4.** The two surfaces read different sources: the badge counted `loadWishlist().length` (raw stored IDs), while the page counted `products.length` from `POST /api/wishlist`, which filters `id IN (…) AND status = 'publish'`. Nine stored IDs pointed at products that no longer exist, so they were counted but could never render. Duplicates were ruled out — `toggleWishlist` uses `indexOf`/`splice`, and `wishlistStorage.js` is the only writer of the key.
+- **Fixed at the source, not patched at the badge.** `POST /api/wishlist` now returns `missingIds` alongside `products`, and a new `pruneWishlist()` in `wishlistStorage.js` drops them and notifies. The stored list therefore **self-heals**: the badge counts what the page renders because both derive from the same resolved set, and dead IDs are removed rather than accumulating forever. Both the Header and the wishlist page prune, so the list is healed whether or not the page is visited.
+- **`pruneWishlist` only writes when something was actually dropped.** It is called on every hydrate, and the second pass has nothing to remove — notifying unconditionally would make each listener re-fetch for no reason. Verified idempotent (repeat prune fires 0 events) and that `prune([])` / `prune(undefined)` are silent no-ops.
+- **The wishlist page no longer paginates.** `ProductGrid` defaulted to `pageSize = 10`, so a saved list longer than 10 would hide items behind "Load More" while the badge counted all of them — the same class of disagreement, one step removed. A saved list is small and personal, so it now renders in full. Also removed a dead `productIds` state that was written and never read.
+- **The badge resolves asynchronously, so it is 0 until the fetch lands.** That is honest — the alternative was a wrong number. On a failed request it falls back to the stored length rather than collapsing to zero, so a network blip cannot make saved items look unsaved.
+- Verified against the live DB: `POST /api/wishlist` with 13 ids (4 live, 9 dead) returns 4 products and 9 `missingIds`, and the two always sum to the input length — that identity is what guarantees the badge and the page agree. Empty, all-dead and all-live inputs all behave. `pruneWishlist` exercised directly under a stubbed `localStorage`/`window`: 13 → 4 survivors, correct single notify, idempotent re-prune, toggle and clear still correct afterwards. `npm run build` clean; `/`, `/wishlist`, `/products` all 200. **Not browser-verified** — no browser attached, so the badge's on-screen value was not confirmed visually.
+- Docs updated: `frontend-architecture.md`, `architecture.md` (API response shape), `progress-tracker.md`.
+
+### Session 2026-10-04 (Category Filter Sidebar Navigation Fixed)
+- **Category clicks in `FilterSidebar` did nothing on `/categories/[slug]`, and "All" could throw the user onto the homepage.** The sidebar was written for `/products`, where `?category=<slug>` is read and filtered. `/categories/[slug]` resolves its category from the path and reads only `?maxPrice`, so a click pushed `?category=…` that the page ignored — URL changed, grid unchanged. Root cause was a shared component with two incompatible contracts.
+- **Secondary bug in the same helper:** `buildHref()` returned `'/'` whenever the resulting query string was empty, so on a page with no other params "All" pushed `router.push('/')` — the homepage — instead of staying put.
+- **Fix — categories are now pages, not a query-param filter.** Every category row is a `<Link href="/categories/<slug>">`, which also makes them middle-clickable and prefetchable. "All" goes to `/products`, the honest "every product" target. This matches the convention already used by `FeaturedCategories`, `CategoryMegaMenu` and the product card.
+- **`activeSlug` prop added** so the sidebar knows the current category from the path; it still falls back to `?category=`, keeping deep links like `/products?category=2` working and highlighted. `aria-current="page"` marks the active row.
+- **The active branch auto-expands.** Arriving on a sub-category (`/categories/melanie-lee`) used to leave it hidden behind a collapsed parent; the containing parent now opens automatically, with the chevron's `aria-expanded`/`aria-controls` reflecting real state.
+- **The price slider was effectively unusable — fixed alongside, since it is the same "the filter doesn't work" complaint.** `max` was hardcoded to `100000` while the entire catalogue spans ৳290–৳2,000, compressing all real prices into the first 2% of the track. Both call sites now pass a `priceCeiling` from a `product.aggregate`, scoped to the page's own products and **deliberately excluding the `maxPrice` filter** — otherwise applying a filter would shrink the ceiling to the filtered maximum and the slider could never be widened again. Verified: `?maxPrice=800` on face-care leaves `max="1600"` while the value syncs to 800.
+- **Behaviour change, flagged for review:** navigating between categories drops `maxPrice`, so each category page starts from a clean filter rather than inheriting a stale price. This is the conventional choice and is called out here because it is a judgement call, not a bug fix.
+- **Verified against the live DB:** all 8 category slugs resolve (HTTP 200) with product counts matching `category.findMany` exactly (30 total); `/products?category=2|face-care|6` → 5/11/7 and `?maxPrice=800` → 8, all matching direct Prisma counts; `/categories/face-care` 11 → 1 under ৳800; `aria-current` correct on both `/products` (All) and `/products?category=2`. `npm run build` clean. **Not browser-verified** — no browser attached, so this is markup/HTTP-level confirmation only.
+- **Two things found and deliberately left alone:** `src/components/storefront/MobileFilter.jsx` has the identical `?category=` bug but is referenced nowhere in the codebase (dead code — removing it is a separate call). `ProductGrid.jsx` carries an uncommitted `lg:grid-cols-5`→`4` change not made in this session; flagged rather than reverted.
+- No Prisma migration, no new dependencies, no schema change. `font-label-caps` left as-is — still a project-wide no-op (`label-caps` lives under `fontSize`, so the real class is `text-label-caps`).
+
+### Session 2026-10-04 (Catalog Import / Export Round-Trip Fixed)
+- **Categories did not round-trip at all, and product exports shipped no images and no variants.** Six confirmed defects in `src/lib/catalog/`, all now fixed. `docs/catalog-import-export.md` was rewritten **first** so the code was written against an agreed contract rather than patched into the old one.
+- **The format is now five CSVs, not one:** `products.csv`, `categories.csv`, `options.csv`, `variants.csv`, `upsells.csv`, joined by **slug**. This deliberately reverses the old doc's one-file/Shopify-style design. Categories carry a parent and an image; variants carry their own price/SKU/stock/image. Neither fits a product row without denormalising or nesting.
+- **Slug, not name and not UUID, is the join key.** Slugs are unique and stable across installs; UUIDs are unique within one database and meaningless on the machine the archive is imported into, so archive filenames switched from `{uuid}-…` to `{slug}-{index}-…`.
+- **Bug 1 — no `categories.csv` existed.** `CATEGORY_COLUMNS` was declared in `constants.js` and referenced nowhere. Category image, parent and description could never leave or re-enter the system. Added, with `Parent Slug` rather than a parent *name*.
+- **Bug 2 — parents resolved by slugified name,** ignoring the parent row's own `Slug` column, so a category with a custom slug forked a duplicate orphan node. Now the parent is referenced by slug. This is a code-level flaw only: every current category happens to satisfy `slugify(name) === stored slug`, so live data was never actually corrupt. An early repro of mine appeared to show parent corruption and was wrong.
+- **Bug 3 — the duplicate-skip check was dead code.** `uniqueSlug()` ran *before* `if (seenSlugs.has(slug))`, and since `uniqueSlug()` loops until the value is absent, the skip branch could never fire — re-importing grew `name-2`, `name-3`. Now the existence check decides upsert-vs-create and `uniqueSlug()` only guards collisions *within* one file. I reintroduced this exact bug in my own first draft and only caught it by re-importing the archive and diffing the tree.
+- **Bug 4 — every product image was silently dropped from exports (44 of 44).** `runExport.js` resolved `public/<image_path>`, but uploads live in `data/uploads/` and `image_path` stores a *URL* (`/api/files/products/…`). The `catch` swallowed the miss. New `resolveStoredImage()` in `images.js` maps `/api/files/<folder>/<name>` and legacy `/uploads/<folder>/<name>` through `getUploadPath()`, with remote URLs downloaded. Export went from a 2.9 KB ZIP to 3.4 MB.
+  - Sub-bug found while testing the fix: `/api/files/<folder>/<name>` has **three** fixed segments, not two. The first draft folded them like the `/uploads/` form and still resolved every image to `data/uploads/files/products/…`. Only caught because `X-Missing-Images` was wired up and reported 44.
+- **Bug 5 — a blank `SKU` aborted the entire import with a 500.** `sku: sku || null` violates `Product.sku String @unique` (non-nullable). Now a row-level error; the rest of the file still imports.
+- **Bug 6 — `PRODUCT_COLUMNS` dropped `specification`, `featured`, `videoUrl`, `ProductImage.altText`, and every option/variant/upsell.** All columns now export and import.
+- **Import policy is deliberately asymmetric.** Categories **upsert by slug** (so a wrong parent or missing image is repairable by re-import); products skip by SKU; variants skip on a matching SKU *or* options array; upsells skip on the schema's own `(productId, upsellId)` pair. Two consequences flagged and accepted: the Import card's "existing data is never overwritten" promise is now false for categories, and its "categories are matched by name" line was simply wrong — both corrected in the UI rather than left standing.
+- **Import order is load-bearing:** categories → products (+images) → options → variants → upsells, so a variant's `imageId` can reference a `ProductImage` created moments earlier.
+- **Category parenting runs as a second pass.** Writing `parentId` inline makes the result depend on row order; a child listed before its parent could not resolve. Verified with a child-first fixture. Self-parent and cycles are reported as row errors and never persisted.
+- **`variants.csv` stores the options JSON array verbatim**, matching the `Json` column, so import never reasons about positional alignment against `options.csv`. A variant's `Image` names one of its parent's files rather than duplicating the bytes — the archive holds one copy of each image.
+- **Report is now per-entity** (`byType`), because "30 imported" is not actionable when 4 of them were variants. The admin page renders a breakdown table; top-level totals are kept for compatibility.
+- **Two further bugs found by testing, not by reading:**
+  - The name→category fallback slugified names blindly, so a category with a custom slug was **duplicated on every import** (`Root Parent`/`custom-parent-slug` grew a phantom `root-parent`). An already-linked category is now matched by name before anything is created.
+  - Variant dedupe keyed on SKU *or* options rather than both, so two rows of the same size/colour combination were both created. The empty-options case is excluded from the options check, or products with no options would collapse to one variant.
+  - Also: row numbers were reported one line too high; a standalone `variants.csv` was misdetected as a product file and every row came back as "Title is required"; and `image: { connect: … }` is rejected by this Prisma client, so variant images had **never** been attachable (`imageId` is required).
+- **All five file types now work standalone.** They resolve products by slug against the DB, so classification checks `product_slug` signatures *before* `sku`.
+- Verified against live Postgres (30 products / 44 images / 4 variants / 8 categories), exporting and re-importing for real: **re-import is a byte-identical no-op** — zero new rows, zero duplicates, hierarchy and images intact. Corrupted a category's `parentId` and cleared another's image, then re-imported: **both repaired**. Row-error fixtures confirm blank SKU, missing title, missing price, invalid status, missing image, self-parent, missing parent and unknown-product-slug are each reported per row without aborting the run. `৳ 1,250.00` parses to `1250`. All QA data removed; DB returned to its exact starting state (30/8/44/2/4/0). Build clean.
+- **Not browser-verified** — no browser attached. The new breakdown table and corrected copy are verified by code and API response shape only. Also unverifiable here: import into a genuinely **empty** database, since clearing production-adjacent data was not acceptable. The round-trip was proven by re-import into the same DB plus targeted fixtures.
+- Docs updated: `catalog-import-export.md` (rewritten — format, module layout, export/import logic, QA checklist, FAQ), `progress-tracker.md`. No Prisma migration — the schema did not change.
 
 ### Session 2026-09-26 (Storefront Page Gutter Tightened)
 - **Mobile gutter 20px → 8px, tablet 24px → 16px, site-wide.** Asked for as a single `<section>` snippet from checkout, but `px-page-margin-mobile` turned out to be the site's gutter *token* — used in 15 files including `Header` and `Footer`. Changing checkout alone would have left its content wider than its own chrome, so this was raised as a scope question and answered "site-wide, via the token".

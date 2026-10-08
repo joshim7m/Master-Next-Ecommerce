@@ -49,6 +49,14 @@ function Spinner() {
   );
 }
 
+const ENTITY_LABELS = {
+  categories: 'Categories',
+  products: 'Products',
+  options: 'Options',
+  variants: 'Variants',
+  upsells: 'Upsells',
+};
+
 export default function CatalogImportExportPage() {
   const [toast, setToast] = useState(null);
   const [exporting, setExporting] = useState(false);
@@ -57,6 +65,14 @@ export default function CatalogImportExportPage() {
   const [report, setReport] = useState(null);
   const [showErrors, setShowErrors] = useState(false);
   const fileInputRef = useRef(null);
+
+  const entityRows = Object.entries(report?.byType ?? {}).map(([key, value]) => ({
+    key,
+    label: ENTITY_LABELS[key] ?? key,
+    imported: value.imported ?? 0,
+    skipped: value.skipped ?? 0,
+    errors: value.errors?.length ?? 0,
+  }));
 
   const showToast = (type, message) => {
     setToast({ type, message });
@@ -77,6 +93,9 @@ export default function CatalogImportExportPage() {
       const match = disposition.match(/filename="?(.+?)"?$/);
       const filename = match ? match[1] : 'catalog-export.zip';
 
+      const count = Number(res.headers.get('X-Export-Count')) || 0;
+      const missingImages = Number(res.headers.get('X-Missing-Images')) || 0;
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -86,7 +105,14 @@ export default function CatalogImportExportPage() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      showToast('success', 'Catalog exported successfully');
+      if (missingImages > 0) {
+        showToast(
+          'error',
+          `Exported ${count} products, but ${missingImages} image${missingImages > 1 ? 's' : ''} could not be read and ${missingImages > 1 ? 'were' : 'was'} left out.`
+        );
+      } else {
+        showToast('success', `Exported ${count} product${count === 1 ? '' : 's'}`);
+      }
     } catch (err) {
       showToast('error', err.message || 'Failed to export catalog');
     } finally {
@@ -135,6 +161,7 @@ export default function CatalogImportExportPage() {
         imported: data.imported ?? 0,
         skipped: data.skipped ?? 0,
         errors: data.errors ?? [],
+        byType: data.byType ?? {},
       });
       showToast('success', `Import finished: ${data.imported ?? 0} imported, ${data.skipped ?? 0} skipped`);
       setSelectedFile(null);
@@ -176,10 +203,14 @@ export default function CatalogImportExportPage() {
             </div>
 
             <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
-              Exports all products with their categories into a single{' '}
-              <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono dark:bg-slate-700">products.csv</code>{' '}
-              plus an <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono dark:bg-slate-700">images/</code>{' '}
-              folder, zipped together.
+              Exports the whole catalog as five CSVs —{' '}
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono dark:bg-slate-700">products</code>,{' '}
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono dark:bg-slate-700">categories</code>,{' '}
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono dark:bg-slate-700">options</code>,{' '}
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono dark:bg-slate-700">variants</code> and{' '}
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono dark:bg-slate-700">upsells</code> — plus
+              an <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-mono dark:bg-slate-700">images/</code>{' '}
+              folder of the real image files.
             </p>
 
             <button
@@ -218,8 +249,9 @@ export default function CatalogImportExportPage() {
             </div>
 
             <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
-              Products with an existing SKU are skipped — existing data is never overwritten. Categories are matched
-              by name and created automatically when missing.
+              Products with an existing SKU, and variants that already exist, are skipped — products are never
+              overwritten. <span className="font-medium text-amber-700 dark:text-amber-400">Categories are an exception:</span>{' '}
+              they are matched by slug and updated, so re-importing is how you repair a hierarchy or replace an image.
             </p>
 
             <div className="mt-6">
@@ -286,6 +318,49 @@ export default function CatalogImportExportPage() {
               </div>
             </div>
 
+            {/* Per-entity breakdown — "30 imported" is not actionable when 4 of them were variants. */}
+            {entityRows.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Breakdown by entity</p>
+                <div className="mt-2 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-900/40">
+                      <tr>
+                        {['Entity', 'Imported', 'Skipped', 'Errors'].map((heading) => (
+                          <th
+                            key={heading}
+                            className={`px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 ${
+                              heading === 'Entity' ? 'text-left' : 'text-right'
+                            }`}
+                          >
+                            {heading}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {entityRows.map(({ key, label, imported, skipped, errors }) => (
+                        <tr key={key}>
+                          <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300">{label}</td>
+                          <td className="px-4 py-2.5 text-right font-medium text-emerald-600 dark:text-emerald-400">
+                            {imported}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-slate-600 dark:text-slate-400">{skipped}</td>
+                          <td
+                            className={`px-4 py-2.5 text-right font-medium ${
+                              errors ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'
+                            }`}
+                          >
+                            {errors}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {report.errors.length > 0 && (
               <div className="mt-4">
                 <button
@@ -300,7 +375,8 @@ export default function CatalogImportExportPage() {
                   <ul className="mt-3 max-h-64 space-y-1 overflow-y-auto rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
                     {report.errors.map((e, i) => (
                       <li key={i}>
-                        Row {e.row}: {e.message}
+                        {e.row != null ? `Row ${e.row}: ` : ''}
+                        {e.message}
                       </li>
                     ))}
                   </ul>
@@ -319,10 +395,18 @@ export default function CatalogImportExportPage() {
             <div className="text-sm text-sky-800 dark:text-sky-200">
               <p className="font-medium">How it works</p>
               <ul className="mt-1 list-inside list-disc space-y-1 text-sky-700 dark:text-sky-300">
-                <li>Export produces one <code className="rounded bg-sky-100 px-1 py-0.5 font-mono text-xs dark:bg-sky-800">products.csv</code> + real image files in a ZIP</li>
-                <li>ZIP imports must contain <code className="rounded bg-sky-100 px-1 py-0.5 font-mono text-xs dark:bg-sky-800">products.csv</code> at the root; plain CSV/XLSX files are auto-detected as products or categories</li>
-                <li>Rows with an existing SKU are skipped and reported — nothing is overwritten</li>
-                <li>Variants are not included in exports; manage them via the product editor</li>
+                <li>
+                  Export produces five CSVs — <code className="rounded bg-sky-100 px-1 py-0.5 font-mono text-xs dark:bg-sky-800">products.csv</code>,{' '}
+                  <code className="rounded bg-sky-100 px-1 py-0.5 font-mono text-xs dark:bg-sky-800">categories.csv</code>,{' '}
+                  <code className="rounded bg-sky-100 px-1 py-0.5 font-mono text-xs dark:bg-sky-800">options.csv</code>,{' '}
+                  <code className="rounded bg-sky-100 px-1 py-0.5 font-mono text-xs dark:bg-sky-800">variants.csv</code>,{' '}
+                  <code className="rounded bg-sky-100 px-1 py-0.5 font-mono text-xs dark:bg-sky-800">upsells.csv</code> —
+                  plus the real image files
+                </li>
+                <li>Related rows join by <span className="font-medium">slug</span>, so a ZIP round-trips between installs; missing files are simply skipped</li>
+                <li>Plain CSV/XLSX files are auto-detected from their headers — products, categories, options, variants or upsells</li>
+                <li>Products (by SKU) and variants are create-only; categories are upserted by slug so hierarchy and images can be repaired</li>
+                <li>Blank SKU, blank price, a missing parent category or a cycle are reported per row and never abort the run</li>
                 <li>Max upload size: 200 MB</li>
               </ul>
             </div>

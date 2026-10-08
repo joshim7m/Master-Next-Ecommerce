@@ -137,6 +137,7 @@ function StatusCard({ order, onUpdate }) {
 function DeliveryCard({ details, items, total }) {
   const subtotal = items.reduce((s, i) => s + Number(i.purchasePrice) * i.quantity, 0);
   const charge = Number(details?.deliveryCharge || 0);
+  const discount = Number(details?.discount || 0);
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
       <div className="flex items-center gap-2.5 bg-gradient-to-r from-emerald-50 to-emerald-50/50 border-b border-slate-200 px-4 py-3 dark:bg-gradient-to-r dark:from-emerald-900/20 dark:to-emerald-900/10 dark:border-slate-700">
@@ -158,6 +159,12 @@ function DeliveryCard({ details, items, total }) {
           <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
           <span className="font-medium text-slate-900 dark:text-white">৳{subtotal.toLocaleString()}</span>
         </div>
+        {discount > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-slate-500 dark:text-slate-400">Discount</span>
+            <span className="font-medium text-emerald-600 dark:text-emerald-400">−৳{discount.toLocaleString()}</span>
+          </div>
+        )}
         <div className="border-t border-slate-100 pt-2 dark:border-slate-700">
           <div className="flex items-center justify-between">
             <span className="font-semibold text-slate-900 dark:text-white">Total</span>
@@ -261,6 +268,15 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterOrderStatus, setFilterOrderStatus] = useState('all');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const s = url.searchParams.get('status');
+    if (s && orderStatuses.includes(s)) {
+      setFilterOrderStatus(s);
+    }
+  }, []);
   const [expanded, setExpanded] = useState(null);
   const [statsOrder, setStatsOrder] = useState(null);
 

@@ -82,7 +82,7 @@ docs/                        # Project documentation
 | `/api/search?q=` | GET | Live product search (top 8) |
 | `/api/categories` | GET | List categories |
 | `/api/products/recent` | GET | 6 newest published products |
-| `/api/wishlist` | POST | Hydrate wishlist IDs into full products |
+| `/api/wishlist` | POST | Hydrate wishlist IDs into full products; also returns `missingIds` (stored IDs that no longer resolve) so the client can prune them |
 | `/api/recommendations?ids=&limit=` | GET | Cross-sell add-ons for a set of seed products → `{ products, source: curated\|auto\|mixed }`. Curated `ProductUpsell` rows first, automatic scoring as fallback. Ids validated/capped at 20, limit clamped to 1–6, never throws |
 | `/api/checkout` | POST | Create order (validation, fraud checks, delivery charge, Telegram alert) |
 | `/api/checkout/check-blocked?deviceHash=` | GET | Blocked-device lookup |

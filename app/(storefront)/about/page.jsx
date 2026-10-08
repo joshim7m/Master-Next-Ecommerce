@@ -1,62 +1,29 @@
 import Link from 'next/link';
 import { getSiteSettings } from '../../../src/lib/getSiteSettings';
-import { siteNameOf } from '../../../src/lib/siteSettings';
+import { siteNameOf, seoDescription } from '../../../src/lib/siteSettings';
 
 export async function generateMetadata() {
   const settings = await getSiteSettings();
   const siteName = siteNameOf(settings);
+  const description = seoDescription(settings);
   return {
     title: { absolute: `About Us | ${siteName}` },
-    description: `Learn about ${siteName} — Bangladesh's favourite online destination for lingerie, sleepwear, beauty, kitchen essentials, and lifestyle products.`,
+    ...(description ? { description } : {}),
     alternates: { canonical: '/about' },
   };
 }
 
-const fallbackAbout = (siteName) => `Welcome to ${siteName} — Bangladesh's favourite online destination for lingerie, sleepwear, beauty, kitchen essentials, and lifestyle products.
-
-## Our Mission
-
-We believe every customer deserves access to comfortable, high-quality products that make everyday living better. Our mission is to provide premium products at affordable prices, delivered with care across Bangladesh.
-
-## Why Choose Us
-
-- **Premium Quality:** We carefully select and curate our products to ensure the highest quality materials and craftsmanship.
-- **Cash on Delivery:** Shop with confidence with our cash on delivery option available across Bangladesh.
-- **Nationwide Shipping:** We deliver to Dhaka, Chittagong, Sylhet, and all areas across Bangladesh.
-- **Easy Returns:** Not satisfied? Our hassle-free return policy has you covered.
-- **Dedicated Support:** Reach us by phone, WhatsApp, or email — we're here to help.
-
-## Our Story
-
-${siteName} was born from a simple idea: everyone should have access to quality lifestyle products without the hassle of traditional shopping. We started as a small online store and have grown into one of Bangladesh's most trusted e-commerce destinations.
-
-Our team works tirelessly to bring you the latest trends, daily essentials, and everything in between — from lingerie and sleepwear to beauty products and kitchen gadgets.
+const fallbackAbout = (siteName) => `Welcome to ${siteName} — your online store in Bangladesh.
 
 ## Get in Touch
 
-Have questions? We'd love to hear from you. Visit our contact page or reach out to us directly. Your satisfaction is our priority.`;
+Have questions or need help with an order? Visit our contact page or reach out to us directly.`;
 
-const fallbackAboutBn = (siteName) => `${siteName} — বাংলাদেশের জনপ্রিয় অনলাইন গন্তব্য লিঞ্জেরি, স্লিপওয়্যার, সৌন্দর্য সামগ্রী, কিচেন এবং লাইফস্টাইল পণ্যের জন্য।
-
-## আমাদের মিশন
-
-আমরা বিশ্বাস করি প্রতিটি গ্রাহক উন্নত মানের আরামদায়ক পণ্যের অধিকারী, যা দৈনন্দিন জীবনকে আরও ভালো করে তোলে। আমাদের লক্ষ্য বাংলাদেশ জুড়ে সেবা প্রদান করা।
-
-## কেন আমাদের বেছে নেবেন
-
-- **মানসম্মত পণ্য:** সর্বোচ্চ মানের উপাদান নিশ্চিত করতে আমরা যত্ন সহকারে পণ্য নির্বাচন করি।
-- **ক্যাশ অন ডেলিভারি:** বাংলাদেশ জুড়ে ক্যাশ অন ডেলিভারি।
-- **সারা দেশে ডেলিভারি:** ঢাকা, চট্টগ্রাম, সিলেট ও সারা বাংলাদেশে।
-- **সহজ রিটার্ন:** অসন্তুষ্ট? আমাদের সহজ রিটার্ন নীতি আছে।
-- **সহায়তা:** ফোন, হোয়াটসঅ্যাপ বা ইমেইলে যোগাযোগ করুন।
-
-## আমাদের গল্প
-
-${siteName} একটি সহজ ধারণা থেকে জন্মেছে: সকলেই গুণগত লাইফস্টাইল পণ্যে অ্যাক্সেস পাওয়ার যোগ্য। আমরা ছোট একটি অনলাইন দোকান থেকে শুরু করে বাংলাদেশের অন্যতম বিশ্বস্ত ই-কমার্স গন্তব্যে পরিণত হয়েছি।
+const fallbackAboutBn = (siteName) => `${siteName} — আপনার অনলাইন স্টোর বাংলাদেশে।
 
 ## যোগাযোগ করুন
 
-প্রশ্ন আছে? আমরা শুনতে চাই। আমাদের যোগাযোগ পৃষ্ঠা দেখুন। আপনার সন্তুষ্টি আমাদের অগ্রাধিকার।`;
+প্রশ্ন আছে বা অর্ডার নিয়ে সাহায্য দরকার? আমাদের যোগাযোগ পৃষ্ঠায় যান বা সরাসরি আমাদের সাথে যোগাযোগ করুন।`;
 
 function renderAbout(text) {
   if (!text) return null;

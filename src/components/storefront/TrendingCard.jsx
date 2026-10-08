@@ -133,13 +133,13 @@ export default function TrendingCard({ product, index = 0 }) {
 
       <div className="flex flex-1 flex-col gap-1.5 p-3 sm:p-4">
         <Link href={`/products/${product.slug}`}>
-          <h3 className="line-clamp-2 text-xs font-medium text-on-surface transition-colors hover:text-primary sm:text-sm dark:text-dark-text dark:hover:text-primary">
+          <h3 className="line-clamp-2 text-center text-xs font-medium text-on-surface transition-colors hover:text-primary sm:text-sm dark:text-dark-text dark:hover:text-primary">
             {product.title}
           </h3>
         </Link>
 
         {/* Price — kept on its own row so the CTA footer below has a full line */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-center gap-1.5">
           <span className="text-sm font-semibold text-primary sm:text-lg">
             ৳{price.toLocaleString()}
           </span>
@@ -156,6 +156,15 @@ export default function TrendingCard({ product, index = 0 }) {
             <>
               <button
                 type="button"
+                onClick={handleOrderNow}
+                aria-label="Order now"
+                className={`${ctaBase} border border-primary bg-primary text-on-primary shadow-[0_4px_14px_-4px_rgba(13,148,136,0.5)] hover:bg-primary/90 hover:shadow-[0_6px_18px_-4px_rgba(13,148,136,0.6)] dark:bg-primary dark:text-on-primary dark:hover:bg-primary/90`}
+              >
+                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
+                অর্ডার করুন 
+              </button>
+               <button
+                type="button"
                 onClick={handleAddToCart}
                 aria-label="Add to cart"
                 className={`${ctaBase} ${
@@ -167,17 +176,7 @@ export default function TrendingCard({ product, index = 0 }) {
                 <span className="material-symbols-outlined text-[16px]" style={added ? { fontVariationSettings: "'FILL' 1" } : undefined}>
                   {added ? 'check' : 'shopping_cart'}
                 </span>
-                {added ? 'Added' : 'Add to Cart'}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleOrderNow}
-                aria-label="Order now"
-                className={`${ctaBase} border border-primary bg-primary text-on-primary shadow-[0_4px_14px_-4px_rgba(13,148,136,0.5)] hover:bg-primary/90 hover:shadow-[0_6px_18px_-4px_rgba(13,148,136,0.6)] dark:bg-primary dark:text-on-primary dark:hover:bg-primary/90`}
-              >
-                <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
-                Order Now
+                {added ? 'কার্টে যোগ হয়েছে ' : 'কার্টে যোগ করুন '}
               </button>
             </>
           ) : (

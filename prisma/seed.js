@@ -2,8 +2,8 @@ const { execSync } = require('child_process');
 
 const seeds = [
   { name: 'Settings', file: 'seedSettings.js' },
-  { name: 'Catalog', file: 'seedCatalog.js' },
-  { name: 'Blog', file: 'seedBlog.js' },
+ // { name: 'Catalog', file: 'seedCatalog.js' },
+  //{ name: 'Blog', file: 'seedBlog.js' },
 ];
 
 for (const seed of seeds) {

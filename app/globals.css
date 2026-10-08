@@ -45,7 +45,8 @@ html {
 
 body {
   margin: 0;
-  font-family: 'Inter', system-ui, sans-serif;
+  /* Hind Siliguri covers Bangla (error messages, customer names); Inter stays first for Latin. */
+  font-family: 'Inter', 'Hind Siliguri', system-ui, sans-serif;
   background: #F9F7F2;
   color: #201144;
 }
@@ -218,4 +219,57 @@ button, input, select, textarea {
 @keyframes fire-ping {
   0% { transform: scale(1); opacity: 0.5; }
   80%, 100% { transform: scale(2); opacity: 0; }
+}
+
+/* ── Invoice printing ──────────────────────────────────────────────
+   The only print styles in the project, and they are scoped to the
+   invoice's own classes on purpose: nothing else on the storefront or
+   in the admin should acquire print behaviour by accident. Bengali is
+   shaped by the browser here, which is the whole reason the print path
+   exists instead of a PDF library drawing the text itself. */
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  /* Keep brand colours and the tinted table header. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  /* Page padding lives on .invoice-sheet, so the page margin stays 0 and
+     the sheet controls its own gutters. */
+  .invoice-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
+    width: 210mm !important;
+    min-height: auto !important;
+  }
+
+  /* A row that straddles a page break reads as two half-rows. */
+  .invoice-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Repeat the column headings on every page of a long order. */
+  .invoice-table thead {
+    display: table-header-group;
+  }
+
+  .invoice-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .no-print {
+    display: none !important;
+  }
 }

@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getOrderByOrderNo, updateOrderStatus, updateOrderDetails, updateOrderItemQuantity, deleteOrderItem } from '../../../../src/actions/orders';
 import ConfirmDialog from '../../../../src/components/ConfirmDialog';
+import CourierBookingModal from '../../../../src/components/admin/CourierBookingModal';
+import CourierStatusBadge from '../../../../src/components/admin/CourierStatusBadge';
 
 const orderStatuses = ['pending', 'processing', 'completed', 'cancelled', 'return', 'incomplete'];
 
@@ -25,8 +27,10 @@ export default function OrderDetailPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [deliveryInput, setDeliveryInput] = useState('');
+  const [discountInput, setDiscountInput] = useState('');
   const [isBlocked, setIsBlocked] = useState(false);
   const [blockLoading, setBlockLoading] = useState(false);
+  const [courierOpen, setCourierOpen] = useState(false);
 
   // Confirmation dialogs
   const [confirmDelete, setConfirmDelete] = useState({ open: false, itemId: null });
@@ -38,6 +42,7 @@ export default function OrderDetailPage() {
     getOrderByOrderNo(params.orderNo).then((data) => {
       setOrder(data);
       setDeliveryInput(data.details ? String(Number(data.details.deliveryCharge)) : '0');
+      setDiscountInput(data.details ? String(Number(data.details.discount || 0)) : '0');
       setLoading(false);
       if (data.details?.deviceHash) {
         fetch(`/api/checkout/check-blocked?deviceHash=${data.details.deviceHash}`)
@@ -48,14 +53,19 @@ export default function OrderDetailPage() {
     });
   }, [params.orderNo]);
 
+  const refreshOrder = useCallback(async () => {
+    const updated = await getOrderByOrderNo(params.orderNo);
+    setOrder(updated);
+    return updated;
+  }, [params.orderNo]);
+
   const handleStatusUpdate = async (field, value) => {
     if (!order) return;
     setSaving(true);
     setSaved(false);
     try {
       await updateOrderStatus(order.id, { [field]: value });
-      const updated = await getOrderByOrderNo(params.orderNo);
-      setOrder(updated);
+      await refreshOrder();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {}
@@ -71,6 +81,22 @@ export default function OrderDetailPage() {
       await updateOrderDetails(order.id, { deliveryCharge: val });
       const updated = await getOrderByOrderNo(params.orderNo);
       setOrder(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {}
+    setSaving(false);
+  };
+
+  const handleDiscountUpdate = async () => {
+    const val = parseFloat(discountInput);
+    if (isNaN(val) || val < 0 || !order) return;
+    setSaving(true);
+    setSaved(false);
+    try {
+      await updateOrderDetails(order.id, { discount: val });
+      const updated = await getOrderByOrderNo(params.orderNo);
+      setOrder(updated);
+      setDiscountInput(String(Number(updated.details?.discount || 0)));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {}
@@ -140,6 +166,9 @@ export default function OrderDetailPage() {
 
   const subtotal = order.items.reduce((sum, item) => sum + Number(item.purchasePrice) * item.quantity, 0);
   const deliveryCharge = Number(order.details?.deliveryCharge || 0);
+  const discount = Number(order.details?.discount || 0);
+  const maxDiscount = subtotal + deliveryCharge;
+  const discountOverLimit = parseFloat(discountInput) > maxDiscount;
   const osColor = orderStatusColors[order.orderStatus] || { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-400', dot: 'bg-slate-400' };
   const canEdit = order.orderStatus !== 'completed';
 
@@ -200,6 +229,26 @@ export default function OrderDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCourierOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#2f0f6b] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#2f0f6b]/90 dark:bg-[#a78bfa] dark:text-slate-900 dark:hover:bg-[#a78bfa]/90"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+            Courier Booking
+          </button>
+          <Link
+            href={`/admin/orders/${order.orderNo}/invoice?autoprint=1`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+            </svg>
+            Download Invoice
+          </Link>
           <span className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold ${osColor.bg} ${osColor.text}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${osColor.dot}`} />
             {order.orderStatus}
@@ -293,6 +342,12 @@ export default function OrderDetailPage() {
             <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
             <span className="font-medium text-slate-900 dark:text-white">৳{subtotal.toLocaleString()}</span>
           </div>
+          {discount > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500 dark:text-slate-400">Discount</span>
+              <span className="font-medium text-emerald-600 dark:text-emerald-400">−৳{discount.toLocaleString()}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-500 dark:text-slate-400">Delivery</span>
             <span className="font-medium text-slate-900 dark:text-white">
@@ -382,6 +437,66 @@ export default function OrderDetailPage() {
                 </div>
               )}
               <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">Updating delivery charge will recalculate the total.</p>
+            </div>
+
+            {/* Discount */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 dark:text-slate-400">
+                Discount
+              </label>
+              {order.orderStatus === 'completed' || order.orderStatus === 'cancelled' ? (
+                <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-sm dark:bg-slate-900/50">
+                  <span className="text-slate-900 font-medium dark:text-white">৳{discount > 0 ? discount.toLocaleString() : '0'}</span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-200/60 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Locked
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 dark:text-slate-500">৳</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max={maxDiscount}
+                        value={discountInput}
+                        onChange={(e) => setDiscountInput(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 py-2 pl-7 pr-3 text-sm focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <button
+                      onClick={handleDiscountUpdate}
+                      disabled={saving}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#2f0f6b] px-4 py-2 text-sm font-medium text-white hover:bg-[#2f0f6b]/90 transition disabled:opacity-50 dark:bg-[#a78bfa] dark:text-slate-900 dark:hover:bg-[#a78bfa]/90"
+                    >
+                      {saving ? (
+                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : (
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                      {saving ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                  {discountOverLimit ? (
+                    <p className="mt-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      Maximum discount is ৳{maxDiscount.toLocaleString()} — it will be capped when saved.
+                    </p>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">Flat amount in ৳, subtracted from the subtotal.</p>
+                  )}
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-2 text-xs">
@@ -513,6 +628,62 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Courier booking summary (only when booked) ── */}
+      {order.courierBooking && (
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden dark:border-slate-700 dark:bg-slate-800">
+          <div className="border-b border-slate-100 bg-slate-50/80 px-5 py-4 flex items-center justify-between dark:border-slate-700 dark:bg-slate-900/50">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">Courier</h2>
+            <CourierStatusBadge
+              provider={order.courierBooking.provider}
+              status={order.courierBooking.courierStatus}
+            />
+          </div>
+          <div className="p-5 space-y-4">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-0.5 dark:text-slate-400">Courier</p>
+                <p className="font-medium text-slate-900 dark:text-white">
+                  {{ steadfast: 'Steadfast', pathao: 'Pathao', redx: 'REDX' }[order.courierBooking.provider] || order.courierBooking.provider}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-0.5 dark:text-slate-400">Consignment</p>
+                <p className="font-mono text-slate-900 dark:text-white">{order.courierBooking.consignmentId}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-0.5 dark:text-slate-400">Tracking Code</p>
+                <p className="font-mono text-slate-900 dark:text-white">{order.courierBooking.trackingCode || '—'}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-0.5 dark:text-slate-400">Last Synced</p>
+                <p className="text-slate-600 dark:text-slate-300">
+                  {order.courierBooking.lastSyncedAt
+                    ? new Date(order.courierBooking.lastSyncedAt).toLocaleString('en-US', {
+                        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                      })
+                    : 'Never'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setCourierOpen(true)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              View details &amp; sync
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Courier Booking modal */}
+      {courierOpen && (
+        <CourierBookingModal
+          order={order}
+          onClose={() => setCourierOpen(false)}
+          onBooked={refreshOrder}
+        />
+      )}
 
       {/* Confirm Dialogs */}
       <ConfirmDialog

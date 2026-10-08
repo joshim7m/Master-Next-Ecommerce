@@ -22,6 +22,15 @@ const ICON_PATHS = {
   database: ['M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4'],
   transfer: ['M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4'],
   user: ['M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z'],
+  truck: [
+    'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z',
+    'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0',
+  ],
+  pages: [
+    'M6 2h9l5 5v13a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2z',
+    'M14 2v5h5',
+    'M9 13h6M9 17h6',
+  ],
 };
 
 const iconColors = {
@@ -40,6 +49,8 @@ const iconColors = {
   database: { bg: 'bg-cyan-100', text: 'text-cyan-600', darkBg: 'dark:bg-cyan-900/30', darkText: 'dark:text-cyan-400' },
   transfer: { bg: 'bg-violet-100', text: 'text-violet-600', darkBg: 'dark:bg-violet-900/30', darkText: 'dark:text-violet-400' },
   user: { bg: 'bg-green-100', text: 'text-green-600', darkBg: 'dark:bg-green-900/30', darkText: 'dark:text-green-400' },
+  pages: { bg: 'bg-yellow-100', text: 'text-yellow-600', darkBg: 'dark:bg-yellow-900/30', darkText: 'dark:text-yellow-400' },
+  truck: { bg: 'bg-lime-100', text: 'text-lime-600', darkBg: 'dark:bg-lime-900/30', darkText: 'dark:text-lime-400' },
 };
 
 const navItems = [
@@ -65,14 +76,16 @@ const usersSubItems = [
 ];
 
 const websiteSubItems = [
-  { label: 'Site Setting', href: '/admin/settings/site', icon: 'site' },
-  { label: 'Hero Sliders', href: '/admin/settings/hero-sliders', icon: 'sliders' },
-  { label: 'Promo Banner', href: '/admin/settings/promo-banner', icon: 'banner' },
-  { label: 'Social Media', href: '/admin/settings/social', icon: 'social' },
+  { label: 'Site Setting',  href: '/admin/settings/site', icon: 'site' },
+  { label: 'Hero Sliders',  href: '/admin/settings/hero-sliders', icon: 'sliders' },
+  { label: 'Promo Banner',  href: '/admin/settings/promo-banner', icon: 'banner' },
+  { label: 'Pages',         href: '/admin/settings/pages', icon: 'pages' },
+  { label: 'Social Media',  href: '/admin/settings/social', icon: 'social' },
 ];
 
 const settingsSubItems = [
   { label: 'Site Config', href: '/admin/settings/site-config', icon: 'notifications' },
+  { label: 'Courier Services', href: '/admin/settings/couriers', icon: 'truck' },
   { label: 'Catalog I/O', href: '/admin/settings/catalog-import-export', icon: 'transfer' },
   { label: 'Backup DB', href: '/admin/settings/backup-db', icon: 'database' },
 ];

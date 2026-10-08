@@ -46,3 +46,21 @@ export function clearWishlist() {
   notify();
   return [];
 }
+
+/** Drop ids the server says no longer resolve, then notify if anything changed.
+ *  Returns the surviving list. Safe to call with an empty `missing` — that is
+ *  the common case, and it deliberately does not fire an event. */
+export function pruneWishlist(missingIds = []) {
+  if (!Array.isArray(missingIds) || missingIds.length === 0) return loadWishlist();
+  const dead = new Set(missingIds);
+  const current = loadWishlist();
+  const list = current.filter((id) => !dead.has(id));
+  /* Only write when something was actually dropped. Callers prune on every
+     hydrate, and the second pass has nothing to remove — writing unconditionally
+     would notify again and make each listener re-fetch for no reason. */
+  if (list.length !== current.length) {
+    saveWishlist(list);
+    notify();
+  }
+  return list;
+}

@@ -32,13 +32,13 @@ export async function POST(request) {
   const normalizedMobile = typeof mobile === 'string' ? mobile.trim() : '';
   if (!normalizedMobile || !MOBILE_REGEX.test(normalizedMobile)) {
     return NextResponse.json(
-      { error: 'A valid mobile number is required to save an incomplete checkout.' },
+      { error: 'অসম্পূর্ণ অর্ডার সংরক্ষণ করতে সঠিক মোবাইল নম্বর দিন।' },
       { status: 400 }
     );
   }
 
   if (!Array.isArray(items) || items.length === 0) {
-    return NextResponse.json({ error: 'Cart is empty.' }, { status: 400 });
+    return NextResponse.json({ error: 'আপনার কার্ট খালি।' }, { status: 400 });
   }
 
   const shippingAreaValue = shippingArea === 'Outside Dhaka' ? 'Outside Dhaka' : 'Inside Dhaka';

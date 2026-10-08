@@ -129,10 +129,10 @@ Each page overrides layout metadata with page-specific values. Every title/descr
 
 | Page | Title pattern | Canonical | JSON-LD |
 |---|---|---|---|
-| Homepage | `{siteName} -- Shop ...` | `/` | ItemList (products) |
+| Homepage | `{siteName}` (or `metaTitle`) | `/` | ItemList (products) |
 | Product | `{title}` (template adds `| {siteName}`) | `/products/{slug}` | Product + Offer |
-| Category | `{name} -- Buy Online in Bangladesh | {siteName}` | `/categories/{slug}` | CollectionPage |
-| Blog listing | `Blog | {siteName} -- ...` | `/blogs` | Blog + BreadcrumbList |
+| Category | `{name} | {siteName}` | `/categories/{slug}` | CollectionPage |
+| Blog listing | `Blog | {siteName}` | `/blogs` | Blog + BreadcrumbList |
 | Blog post | `{title} | {siteName} Blog` | `/blogs/{slug}` | BlogPosting + BreadcrumbList |
 | About | `About Us | {siteName}` | `/about` | — |
 | Contact | `Contact Us | {siteName}` | `/contact` | LocalBusiness |
@@ -141,10 +141,17 @@ Each page overrides layout metadata with page-specific values. Every title/descr
 
 ### Admin-driven SEO defaults
 The admin **Site Setting → SEO & Sharing** section (planned in `docs/plan-site-settings-dynamic.md`) provides global defaults used by the layouts:
-- `metaTitle` — global title suffix (falls back to `siteName`)
-- `metaDescription` — global default `<meta name="description">`
-- `metaKeywords` — global comma-separated keywords
+- `metaTitle` — global default title (falls back to `siteName`)
+- `metaDescription` — global `<meta name="description">`; **emitted only when set** — blank fields never fall back to invented copy
+- `metaKeywords` — global comma-separated keywords; emitted only when set
 - `ogImage` — optional default OG image
+
+> **Policy (enforced 2026-10-07):** render output contains **no hardcoded marketing copy**. Titles compose
+> `{page} | {siteName}`; descriptions and keywords appear **only** when the admin entered them
+> (`src/lib/siteSettings.js` `seoDescription`/`seoKeywords`). Previously the layouts, homepage, and
+> listing pages fell back to hardcoded "lingerie" slogans and a 12-keyword default array — removed
+> across `app/layout.jsx`, `app/(storefront)/layout.jsx`, the homepage, categories, blogs, about,
+> products, new-arrivals, hot-sales, and the OG route.
 
 ### Admin-driven Site URL & JWT (Site Config)
 The admin **Site Config** page (`/admin/settings/site-config`) now manages two keys that were previously env-only:
@@ -278,7 +285,7 @@ Resolution order is **env → DB → default**, and it happens per-request, so a
 
 ### Indexability
 - [x] Every page has unique `<title>` tag
-- [x] Every page has unique `<meta name="description">`
+- [x] Unique `<meta name="description">` wherever the admin provides one (tag omitted otherwise — no invented copy)
 - [x] Canonical URLs set on every page
 - [x] No duplicate content (canonicals point to correct URLs)
 - [x] `noindex` not accidentally set on important pages
@@ -320,8 +327,8 @@ Resolution order is **env → DB → default**, and it happens per-request, so a
 - **Unique content:** Avoid duplicate descriptions across products
 
 ### Category Pages
-- **Title format:** `{Category Name} -- Buy Online in Bangladesh | {siteName}`
-- **Description:** Use the `description` field on Category (150-160 chars)
+- **Title format:** `{Category Name} | {siteName}`
+- **Description:** Use the `description` field on Category, else the admin's global `metaDescription` (tag omitted when neither is set)
 - **Internal linking:** Categories link to products, products link back to categories
 
 ### Blog Posts
@@ -497,8 +504,8 @@ Every page includes:
 
 **Category:**
 ```html
-<title>{name} -- Buy Online in Bangladesh | {siteName}</title>
-<meta name="description" content="{description or auto-generated}" />
+<title>{name} | {siteName}</title>
+<meta name="description" content="{category.description or admin metaDescription}" />
 <link rel="canonical" href="https://example.com/categories/{slug}" />
 <meta property="og:type" content="website" />
 <meta property="og:title" content="{name} | {siteName}" />

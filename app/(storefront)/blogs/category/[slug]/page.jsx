@@ -3,7 +3,7 @@ import Link from 'next/link';
 import prisma from '../../../../../src/lib/prisma';
 import LoadMorePosts from '../../../../../src/components/storefront/LoadMorePosts';
 import { getSiteSettings } from '../../../../../src/lib/getSiteSettings';
-import { siteNameOf, siteUrlOf } from '../../../../../src/lib/siteSettings';
+import { siteNameOf, siteUrlOf, seoDescription } from '../../../../../src/lib/siteSettings';
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -13,21 +13,21 @@ export async function generateMetadata({ params }) {
   ]);
   const siteName = siteNameOf(settings);
   const siteUrl = siteUrlOf(settings);
+  const description = seoDescription(settings);
 
   if (!category || category.status !== 'publish') return {};
 
-  const title = `${category.title} Articles | ${siteName} Blog`;
-  const description = `Read our latest ${category.title} articles at ${siteName} Bangladesh. Shop online with cash on delivery across Bangladesh.`;
+  const title = `${category.title} Articles | ${siteName}`;
 
   return {
     title: { absolute: title },
-    description,
+    ...(description ? { description } : {}),
     alternates: { canonical: `/blogs/category/${category.slug}` },
     robots: { index: true, follow: true },
     openGraph: {
       type: 'website',
       title,
-      description,
+      ...(description ? { description } : {}),
       url: `${siteUrl}/blogs/category/${category.slug}`,
       siteName,
       images: category.image ? [{ url: category.image, width: 1200, height: 630, alt: category.title }] : undefined,
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }) {
     twitter: {
       card: 'summary_large_image',
       title,
-      description,
+      ...(description ? { description } : {}),
     },
   };
 }

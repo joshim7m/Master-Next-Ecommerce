@@ -23,6 +23,12 @@ const pageTitles = {
   '/admin/settings/promo-banner': 'Promo Banner',
   '/admin/settings/social': 'Social Media',
   '/admin/settings/catalog-import-export': 'Catalog Import / Export',
+  '/admin/settings/couriers': 'Courier Services',
+  '/admin/settings/couriers/create': 'Create Courier',
+  '/admin/settings/couriers/edit': 'Edit Courier',
+  '/admin/settings/pages': 'Pages',
+  '/admin/settings/pages/create': 'Create Page',
+  '/admin/settings/pages/edit': 'Edit Page',
   '/admin/settings/backup-db': 'Backup DB',
 };
 
@@ -41,7 +47,12 @@ export default function AdminLayout({ children }) {
     router.push('/admin/login');
   };
 
-  if (isLogin) {
+  // The invoice renders bare: it is captured for print/PDF, so the sidebar and
+  // header must not be part of the output at all (rather than merely hidden by
+  // print CSS, which would still bloat the rasterised sheet).
+  const isBare = isLogin || /^\/admin\/orders\/[^/]+\/invoice\/?$/.test(pathname);
+
+  if (isBare) {
     return <>{children}</>;
   }
 

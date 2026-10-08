@@ -4,7 +4,6 @@ import ProductGrid from '../(home)/_partials/ProductGrid';
 
 export const metadata = {
   title: 'All Products',
-  description: 'Browse our complete collection of products.',
 };
 
 export default async function ProductsPage({ searchParams }) {
@@ -12,10 +11,19 @@ export default async function ProductsPage({ searchParams }) {
   const categorySlug = params.category || null;
   const maxPrice = params.maxPrice ? Number(params.maxPrice) : null;
 
-  const categories = await prisma.category.findMany({
-    include: { _count: { select: { products: true } }, children: { include: { _count: { select: { products: true } } } } },
-    orderBy: { name: 'asc' },
-  });
+  const [categories, priceCeiling] = await Promise.all([
+    prisma.category.findMany({
+      include: { _count: { select: { products: true } }, children: { include: { _count: { select: { products: true } } } } },
+      orderBy: { name: 'asc' },
+    }),
+    // Slider ceiling across the whole catalogue, ignoring the maxPrice filter for
+    // the same reason as the category page: applying a filter must not shrink the
+    // range the user can widen back out to.
+    prisma.product.aggregate({
+      where: { status: 'publish' },
+      _max: { unite_price: true },
+    }),
+  ]);
 
   const where = { status: 'publish' };
   if (categorySlug) {
@@ -56,7 +64,7 @@ export default async function ProductsPage({ searchParams }) {
       </div>
 
       <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row">
-        <FilterSidebar categories={categories} />
+        <FilterSidebar categories={categories} priceCeiling={Number(priceCeiling._max.unite_price) || undefined} />
         <div className="flex-1">
           <ProductGrid products={serialized} pageSize={20} />
         </div>

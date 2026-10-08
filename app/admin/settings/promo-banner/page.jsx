@@ -9,7 +9,7 @@ const EMPTY = {
   tags: '',
   buttonText: '',
   buttonLink: '',
-  trustLabels: 'Cash on Delivery\nDiscreet Packaging\nNationwide Delivery',
+  trustLabels: 'Cash on Delivery\nNationwide Delivery\nEasy Returns',
   isActive: true,
 };
 
@@ -209,7 +209,7 @@ export default function PromoBannerSettingsPage() {
                   value={form.trustLabels}
                   onChange={handleChange}
                   rows={3}
-                  placeholder={'Cash on Delivery\nDiscreet Packaging\nNationwide Delivery'}
+                  placeholder={'Cash on Delivery\nNationwide Delivery\nEasy Returns'}
                   className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 dark:text-white p-2.5 text-sm focus:border-[#2f0f6b] dark:focus:border-[#a78bfa] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:focus:ring-[#a78bfa]"
                 />
               </div>

@@ -1,29 +1,34 @@
 import prisma from '../../../src/lib/prisma';
 import Link from 'next/link';
 import { getSiteSettings } from '../../../src/lib/getSiteSettings';
-import { siteNameOf, siteUrlOf } from '../../../src/lib/siteSettings';
+import { siteNameOf, siteUrlOf, seoDescription } from '../../../src/lib/siteSettings';
 
 export async function generateMetadata() {
   const settings = await getSiteSettings();
   const siteName = siteNameOf(settings);
   const siteUrl = siteUrlOf(settings);
-  const title = `All Categories — Shop Lingerie, Bras, Panties & Nightwear | ${siteName} Bangladesh`;
-  const description =
-    `Browse all product categories at ${siteName} — lingerie, bras, panties, nightwear, stockings, health & beauty, watches, and more. ` +
-    'Shop online with cash on delivery across Bangladesh.';
-  const ogImage = settings.ogImage || `${siteUrl}/api/og?title=${encodeURIComponent('All Categories')}&subtitle=${encodeURIComponent('Shop Lingerie, Bras, Panties & Nightwear')}&type=category&siteName=${encodeURIComponent(siteName)}`;
+  const title = `All Categories | ${siteName}`;
+  const description = seoDescription(settings);
+
+  const ogQuery = new URLSearchParams({
+    title: 'All Categories',
+    type: 'category',
+    siteName,
+    ...(description ? { subtitle: description.slice(0, 120) } : {}),
+  });
+  const ogImage = settings.ogImage || `${siteUrl}/api/og?${ogQuery.toString()}`;
 
   return {
     title: { absolute: title },
-    description,
+    ...(description ? { description } : {}),
     alternates: { canonical: '/categories' },
     openGraph: {
       title,
-      description,
+      ...(description ? { description } : {}),
       url: `${siteUrl}/categories`,
       images: [{ url: ogImage, width: 1200, height: 630, alt: `${siteName} Categories` }],
     },
-    twitter: { title, description, images: [ogImage] },
+    twitter: { title, ...(description ? { description } : {}), images: [ogImage] },
   };
 }
 
@@ -54,8 +59,8 @@ export default async function CategoryListingPage({ searchParams }) {
   const collectionJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
-    name: `All Categories — ${siteNameOf(settings)} Bangladesh`,
-    description: `Browse all product categories at ${siteNameOf(settings)} — lingerie, bras, panties, nightwear, and more.`,
+    name: `All Categories — ${siteNameOf(settings)}`,
+    description: `Browse all product categories at ${siteNameOf(settings)}.`,
     url: `${siteUrl}/categories`,
     hasPart: allCategories.map((c) => ({
       '@type': 'CollectionPage',

@@ -1,6 +1,6 @@
 import prisma from '../../../src/lib/prisma';
 import { getSiteSettings } from '../../../src/lib/getSiteSettings';
-import { siteNameOf, siteUrlOf } from '../../../src/lib/siteSettings';
+import { siteNameOf, siteUrlOf, seoDescription } from '../../../src/lib/siteSettings';
 import Hero from './_partials/Hero';
 import FeaturedCategories from './_partials/FeaturedCategories';
 import TrendingNow from './_partials/TrendingNow';
@@ -18,35 +18,36 @@ export async function generateMetadata({ searchParams }) {
 
   const siteName = siteNameOf(settings);
   const siteUrl = siteUrlOf(settings);
+  // Title comes from the admin (metaTitle) or the admin-set site name — never
+  // from a hardcoded slogan. Description is emitted only when the admin wrote one.
+  const siteTitle = settings.metaTitle || siteName;
+  const description = seoDescription(settings);
 
-  const title = category
-    ? `${category.name} — Shop Online at ${siteName} Bangladesh`
-    : `${siteName} — Shop Lingerie, Bras, Panties & Nightwear Online in Bangladesh`;
-
-  const description = category
-    ? `Browse our collection of ${category.name} at ${siteName}. ` +
-      `Shop online with cash on delivery across Bangladesh — Dhaka, Chittagong, Sylhet & nationwide. ` +
-      `Premium quality, discreet packaging, and sizes that fit every body.`
-    : `Discover ${siteName} — Bangladesh's favourite online destination for lingerie, bras, panties, nightwear, and women's intimate apparel. ` +
-      "Cash on delivery, discreet packaging, and free shipping options available across Dhaka, Chittagong, Sylhet, and all of Bangladesh.";
+  const title = category ? `${category.name} | ${siteName}` : siteTitle;
 
   const ogTitle = category ? category.name : siteName;
-  const ogImage = settings.ogImage || `${siteUrl}/api/og?title=${encodeURIComponent(ogTitle)}&subtitle=${encodeURIComponent(description.slice(0, 120))}&type=${category ? 'category' : 'website'}&siteName=${encodeURIComponent(siteName)}`;
+  const ogQuery = new URLSearchParams({
+    title: ogTitle,
+    type: category ? 'category' : 'website',
+    siteName,
+    ...(description ? { subtitle: description.slice(0, 120) } : {}),
+  });
+  const ogImage = settings.ogImage || `${siteUrl}/api/og?${ogQuery.toString()}`;
 
   return {
     title: { absolute: title },
-    description,
+    ...(description ? { description } : {}),
     alternates: { canonical: category ? `/categories/${category.slug}` : '/' },
     openGraph: {
       title,
-      description,
+      ...(description ? { description } : {}),
       siteName,
       url: category ? `${siteUrl}/categories/${category.slug}` : siteUrl,
       images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       title,
-      description,
+      ...(description ? { description } : {}),
       images: [ogImage],
     },
   };
@@ -119,7 +120,7 @@ export default async function HomePage({ searchParams }) {
   const itemListJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    name: `${siteNameOf(settings)} — Lingerie, Bras, Panties & Nightwear Online Bangladesh`,
+    name: `${siteNameOf(settings)}`,
     numberOfItems: trendingProducts.length,
     itemListElement: trendingProducts.slice(0, 20).map((p, i) => ({
       '@type': 'ListItem',

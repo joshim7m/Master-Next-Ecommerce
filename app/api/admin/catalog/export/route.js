@@ -16,7 +16,7 @@ export async function GET(request) {
   let workDir;
 
   try {
-    const { workDir: dir, zipPath, count } = await buildCatalogZip();
+    const { workDir: dir, zipPath, count, missingImages } = await buildCatalogZip();
     workDir = dir;
     await stat(zipPath);
 
@@ -33,6 +33,9 @@ export async function GET(request) {
           .replace(/[:.]/g, '-')
           .slice(0, 19)}.zip"`,
         'X-Export-Count': String(count),
+        // Surfaced in the UI so a silently truncated image folder is visible
+        // rather than something the admin has to infer from an empty directory.
+        'X-Missing-Images': String(missingImages),
       },
     });
   } catch (error) {

@@ -7,7 +7,7 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const settings = await getSiteSettings();
   const title = searchParams.get('title') || DEFAULT_BRAND;
-  const subtitle = searchParams.get('subtitle') || "Bangladesh's Trusted Online Lingerie & Women's Intimates Store";
+  const subtitle = searchParams.get('subtitle') || 'Online Shopping in Bangladesh';
   const brand = searchParams.get('siteName') || DEFAULT_BRAND;
   const siteHost = new URL(siteUrlOf(settings)).hostname;
   const type = searchParams.get('type') || 'website'; // website | product | category
@@ -162,7 +162,7 @@ export async function GET(request) {
             {siteHost}
           </span>
           <span style={{ fontSize: '14px', color: '#94a3b8' }}>
-            Cash on Delivery • Nationwide Shipping
+            Online Shopping in Bangladesh
           </span>
         </div>
       </div>

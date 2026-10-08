@@ -8,37 +8,49 @@ import useDeviceFingerprint from '../../../src/hooks/useDeviceFingerprint';
 import FrequentlyBoughtTogether from '../../../src/components/storefront/FrequentlyBoughtTogether';
 
 const MOBILE_REGEX = /^(013|014|015|016|017|018|019)\d{8}$/;
+// Latin + Bangla letters only, plus space/apostrophe/hyphen/full-stop. \p{Zs} covers
+// regular space and NBSP (mobile keyboards insert those) without allowing newlines.
+const NAME_REGEX = /^[\p{Script=Latin}\p{Script=Bengali}\p{Zs} '.-]+$/u;
 const DRAFT_KEY = 'incomplete-checkout-orderNo';
 const DRAFT_SAVE_DELAY = 1200;
+
+// Bangla names use combining marks (matra ো/ী, hasant ্, ...) that render as a
+// single glyph but count as extra code units. Strip them before measuring length,
+// otherwise a normal name like "উদ্দিন" is wrongly judged too long/too short.
+const BENGALI_COMBINING_MARKS = /[\u0981-\u0983\u09BC\u09BE-\u09CD\u09D7]/g;
+
+function visibleLength(value) {
+  return Array.from(value.replace(BENGALI_COMBINING_MARKS, '')).length;
+}
 
 function validate(form) {
   const errors = {};
 
   const name = form.name.trim();
   if (!name) {
-    errors.name = 'Name is required.';
-  } else if (name.length < 3) {
-    errors.name = 'Name must be at least 3 characters.';
-  } else if (name.length > 20) {
-    errors.name = 'Name must be under 20 characters.';
-  } else if (!/^[A-Za-z\s]+$/.test(name)) {
-    errors.name = 'Only letters and spaces allowed.';
+    errors.name = 'নাম প্রদান করুন।';
+  } else if (visibleLength(name) < 2) {
+    errors.name = 'নাম কমপক্ষে ২ অক্ষরের হতে হবে।';
+  } else if (visibleLength(name) > 20) {
+    errors.name = 'নাম ২০ অক্ষরের মধ্যে হতে হবে।';
+  } else if (!NAME_REGEX.test(name)) {
+    errors.name = 'শুধুমাত্র ইংরেজি ও বাংলা অক্ষর ব্যবহার করুন।';
   }
 
   const mobile = form.mobile.trim();
   if (!mobile) {
-    errors.mobile = 'Mobile number is required.';
+    errors.mobile = 'মোবাইল নম্বর দিন।';
   } else if (!MOBILE_REGEX.test(mobile)) {
-    errors.mobile = 'Enter a valid BD mobile number (e.g. 017XXXXXXXX).';
+    errors.mobile = 'সঠিক বাংলাদেশি মোবাইল নম্বর দিন (যেমন: 017XXXXXXXX)।';
   }
 
   const address = form.address.trim();
   if (!address) {
-    errors.address = 'Address is required.';
-  } else if (address.length < 20) {
-    errors.address = 'Address must be at least 20 characters.';
+    errors.address = 'ঠিকানা দিন।';
+  } else if (address.length < 10) {
+    errors.address = 'ঠিকানা কমপক্ষে ১০ অক্ষরের হতে হবে।';
   } else if (address.length > 100) {
-    errors.address = 'Address must be under 100 characters.';
+    errors.address = 'ঠিকানা ১০০ অক্ষরের মধ্যে হতে হবে।';
   }
 
   return errors;
@@ -175,9 +187,9 @@ export default function CheckoutPage() {
   async function tryReadError(res) {
     try {
       const data = await res.json();
-      return data.error || 'Checkout failed';
+      return data.error || 'অর্ডারটি সম্পন্ন হয়নি। অনুগ্রহ করে আবার চেষ্টা করুন।';
     } catch {
-      return `Checkout failed (${res.status})`;
+      return `অর্ডারটি সম্পন্ন হয়নি (কোড: ${res.status})। অনুগ্রহ করে আবার চেষ্টা করুন।`;
     }
   }
 
@@ -190,7 +202,7 @@ export default function CheckoutPage() {
     if (Object.keys(fieldErrors).length > 0) return;
 
     if (cart.length === 0) {
-      setErrorMsg('Your cart is empty.');
+      setErrorMsg('আপনার কার্ট খালি।');
       return;
     }
 
@@ -207,7 +219,7 @@ export default function CheckoutPage() {
       }
 
       const data = await res.json();
-      if (!data.orderNo) throw new Error('Invalid response from server');
+      if (!data.orderNo) throw new Error('সার্ভার থেকে সঠিক উত্তর পাওয়া যায়নি। আবার চেষ্টা করুন।');
 
       draftOrderNoRef.current = null;
       lastDraftPayloadRef.current = '';
@@ -272,7 +284,7 @@ export default function CheckoutPage() {
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Name *</label>
-              <input id="name" name="name" value={form.name} onChange={handleChange} className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.name ? 'border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Your name" />
+              <input id="name" name="name" value={form.name} onChange={handleChange} className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.name ? 'border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Full name" />
               {errors.name ? <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">{errors.name}</p> : null}
             </div>
             <div>
@@ -282,7 +294,7 @@ export default function CheckoutPage() {
             </div>
             <div>
               <label htmlFor="address" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Full Address *</label>
-              <textarea id="address" name="address" value={form.address} onChange={handleChange} rows="3" className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.address ? 'border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Full Address" />
+              <textarea id="address" name="address" value={form.address} onChange={handleChange} rows="3" className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.address ? 'border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Flat No, Road No, Area, Thana" />
               {errors.address ? <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">{errors.address}</p> : null}
             </div>
             <div className="rounded-xl border border-border bg-warm-sand p-4 dark:border-dark-border dark:bg-dark-bg">

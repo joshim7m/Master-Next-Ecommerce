@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import FilterSidebar from '../../(home)/_partials/FilterSidebar';
 import ProductGrid from '../../(home)/_partials/ProductGrid';
 import { getSiteSettings } from '../../../../src/lib/getSiteSettings';
-import { siteNameOf, siteUrlOf } from '../../../../src/lib/siteSettings';
+import { siteNameOf, siteUrlOf, seoDescription } from '../../../../src/lib/siteSettings';
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -16,25 +16,28 @@ export async function generateMetadata({ params }) {
   const siteName = siteNameOf(settings);
   const siteUrl = siteUrlOf(settings);
 
-  const title = `${category.name} — Buy Online in Bangladesh | ${siteName}`;
-  const description =
-    (category.description || `Shop our collection of ${category.name} at ${siteName}.`) +
-    ` Browse ${category.name} online with cash on delivery across Bangladesh — Dhaka, Chittagong, Sylhet & nationwide. ` +
-    'Premium quality, discreet packaging, and sizes that fit every body.';
+  const title = `${category.name} | ${siteName}`;
+  const description = category.description?.trim() || seoDescription(settings);
 
-  const ogImage = settings.ogImage || `${siteUrl}/api/og?title=${encodeURIComponent(category.name)}&subtitle=${encodeURIComponent(`Browse at ${siteName} — Cash on Delivery Bangladesh`)}&type=category&siteName=${encodeURIComponent(siteName)}`;
+  const ogQuery = new URLSearchParams({
+    title: category.name,
+    type: 'category',
+    siteName,
+    ...(description ? { subtitle: description.slice(0, 120) } : {}),
+  });
+  const ogImage = settings.ogImage || `${siteUrl}/api/og?${ogQuery.toString()}`;
 
   return {
     title: { absolute: title },
-    description,
+    ...(description ? { description } : {}),
     alternates: { canonical: `/categories/${slug}` },
     openGraph: {
       title,
-      description,
+      ...(description ? { description } : {}),
       url: `${siteUrl}/categories/${slug}`,
       images: [{ url: ogImage, width: 1200, height: 630, alt: category.name }],
     },
-    twitter: { title, description, images: [ogImage] },
+    twitter: { title, ...(description ? { description } : {}), images: [ogImage] },
   };
 }
 
@@ -43,7 +46,11 @@ export default async function CategoryProductsPage({ params, searchParams }) {
   const sp = await searchParams;
   const maxPrice = sp.maxPrice ? Number(sp.maxPrice) : null;
 
-  const [settings, category, categories] = await Promise.all([
+  // Slider ceiling from this category's own prices, so the useful range isn't
+  // squeezed into a sliver of a hardcoded ৳100,000 track. Deliberately excludes the
+  // maxPrice filter — otherwise applying a filter would shrink the ceiling to the
+  // filtered maximum and the slider could never be widened again.
+  const [settings, category, categories, priceCeiling] = await Promise.all([
     getSiteSettings(),
     prisma.category.findUnique({
       where: { slug },
@@ -51,6 +58,10 @@ export default async function CategoryProductsPage({ params, searchParams }) {
     prisma.category.findMany({
       include: { _count: { select: { products: true } }, children: { include: { _count: { select: { products: true } } } } },
       orderBy: { name: 'asc' },
+    }),
+    prisma.product.aggregate({
+      where: { status: 'publish', categories: { some: { slug } } },
+      _max: { unite_price: true },
     }),
   ]);
 
@@ -133,7 +144,11 @@ export default async function CategoryProductsPage({ params, searchParams }) {
         </div>
 
         <div className="flex flex-col gap-6 lg:flex-row">
-          <FilterSidebar categories={categories} />
+          <FilterSidebar
+            categories={categories}
+            activeSlug={slug}
+            priceCeiling={Number(priceCeiling._max.unite_price) || undefined}
+          />
           <div className="flex-1">
             <p className="mb-4 text-sm text-slate-400">{products.length} {products.length === 1 ? 'product' : 'products'}</p>
             <ProductGrid products={serialized} />

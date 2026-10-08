@@ -62,6 +62,7 @@ Defined in `tailwind.config.js` (theme.extend.colors); CSS variables mirrored in
 - **Font Families:**
   - **Headings/Display:** Playfair Display (serif) — loaded via Google Fonts in root layout
   - **Body/UI:** Inter (sans-serif) — loaded via Google Fonts in root layout
+  - **Bengali:** Hind Siliguri — loaded via Google Fonts in the root layout alongside the others, and exposed as the `font-bangla` Tailwind token (`["Hind Siliguri", "Inter", "system-ui", "sans-serif"]`). Chosen because neither Playfair Display nor Inter covers U+0980–09FF; "Bangla Sans" is not a Google Fonts family. The token is kept **out** of `sans` on purpose so the existing storefront and admin stacks cannot shift. Currently applied on the order invoice only — storefront Bangla content (blog posts, `aboutCompanyBn`, seeded product copy) is still on OS fallback until `font-bangla` is added to those surfaces.
 - **Icons:** Material Symbols Outlined — loaded via Google Fonts in root layout
 - **Type Scale:**
   - `display-xl`: 3.5rem/4rem, tracking-tight, font-display (Playfair Display)
@@ -139,6 +140,7 @@ Material Symbols Outlined loaded via Google Fonts. Used consistently across Head
 
 **Implemented:**
 - `Header` — Sticky header with backdrop-blur, centered brand name (Playfair Display), desktop nav links (New Arrivals, Collections, Journal, About — hidden on mobile), Material Symbols icons (search, person, favorite, shopping_bag), mobile hamburger menu, dark mode toggle, search overlay, cart badge count
+- `CategoryMegaMenu` — Collections dropdown panel (desktop `lg+`). Rounded-2xl white card with `shadow-2xl`, max width `max-w-4xl`, capped at `max-h-[70vh]` with only the category grid scrolling so the "View All" link is always reachable. Grid of 2 columns (`sm:grid-cols-3`), parent names in bold uppercase as linked column titles, subcategories in `text-muted` behind a primary-colored `›`. Light-mode hover tint is `warm-sand`, dark-mode is `dark-bg` on `dark-card`
 - `Footer` — `bg-editorial-ink` dark background, 4-column responsive grid (brand/logo, shop links, company links, newsletter + socials), newsletter email form (visual), social SVG icons (Facebook, Twitter, Instagram, LinkedIn, YouTube, WhatsApp, Pinterest, TikTok, GitHub, Telegram), dynamic links from DB
 - `AnnouncementBar` — Full-width dark strip (`bg-editorial-ink`), centered uppercase text with letter-spacing, default message "FREE SHIPPING ON ALL ORDERS OVER ৳5,000 | SHOP NEW ARRIVALS", configurable via DB `announcementText`
 - `CartDrawer` — Slide-out mini cart synced to localStorage

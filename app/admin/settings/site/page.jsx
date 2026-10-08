@@ -364,7 +364,7 @@ export default function SiteSettingsPage() {
           />
         </SectionCard>
 
-        <SectionCard title="SEO & Sharing" description="Global defaults used across the storefront for titles, descriptions, keywords, and social sharing. Leave blank to fall back to your company name and about text.">
+        <SectionCard title="SEO & Sharing" description="Global defaults used across the storefront for titles, descriptions, keywords, and social sharing. Titles use your site name; leave a field blank and its tag is hidden (nothing invented is shown).">
           <InputField
             label="Meta Title Suffix"
             value={form.metaTitle}
@@ -383,7 +383,7 @@ export default function SiteSettingsPage() {
             label="Meta Keywords"
             value={form.metaKeywords}
             onChange={(e) => setForm((prev) => ({ ...prev, metaKeywords: e.target.value }))}
-            placeholder="lingerie Bangladesh, bra shop online BD, nightwear for women..."
+            placeholder="online shopping, cash on delivery, Bangladesh"
             hint="Comma-separated keywords used as the site-wide default."
           />
           <ImageUpload

@@ -2,17 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { loadWishlist, clearWishlist } from '../../../src/lib/wishlistStorage';
+import { loadWishlist, clearWishlist, pruneWishlist } from '../../../src/lib/wishlistStorage';
 import ProductGrid from '../(home)/_partials/ProductGrid';
 
 export default function WishlistPage() {
-  const [productIds, setProductIds] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const ids = loadWishlist();
-    setProductIds(ids);
 
     if (ids.length === 0) {
       setLoading(false);
@@ -29,6 +27,9 @@ export default function WishlistPage() {
         if (res.ok) {
           const data = await res.json();
           setProducts(data.products || []);
+          /* Drop ids that no longer resolve so the header badge and this page
+             can never disagree about how many items are saved. */
+          pruneWishlist(data.missingIds);
         }
       } catch {} finally {
         setLoading(false);
@@ -40,7 +41,6 @@ export default function WishlistPage() {
 
   const handleClear = () => {
     clearWishlist();
-    setProductIds([]);
     setProducts([]);
   };
 
@@ -97,7 +97,10 @@ export default function WishlistPage() {
           </Link>
         </div>
       ) : (
-        <ProductGrid products={products} />
+        /* No pagination: a saved list is small and personal, so it should show
+           every item at once rather than hiding some behind "Load More" while
+           the header badge counts all of them. */
+        <ProductGrid products={products} pageSize={Math.max(products.length, 1)} />
       )}
     </div>
   );

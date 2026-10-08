@@ -3,8 +3,6 @@ import TrendingCard from '../../../src/components/storefront/TrendingCard';
 
 export const metadata = {
   title: 'Hot Sales',
-  description:
-    'Explore our featured products — handpicked favourites at the best prices, cash on delivery and discreet shipping across Bangladesh.',
 };
 
 export const dynamic = 'force-dynamic';
@@ -64,8 +62,7 @@ export default async function HotSalesPage() {
             Hot Sales
           </h1>
           <p className="max-w-lg text-sm text-white/85 sm:text-base">
-            Featured pieces with up to {avgDiscount || '40'}% off — comfort and style for every
-            occasion, delivered discreetly across Bangladesh.
+            Featured pieces with up to {avgDiscount || '40'}% off — fresh picks for every occasion.
           </p>
           <div className="flex flex-wrap gap-3">
             <div className="rounded-xl bg-white/15 px-4 py-2 text-white backdrop-blur-sm">

@@ -45,6 +45,10 @@ module.exports = {
       fontFamily: {
         display: ['"Playfair Display"', 'Georgia', 'serif'],
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        // Bengali. Inter and Playfair Display cover no Bengali codepoints, so
+        // Bangla text was falling back to whatever the OS supplies. Kept out of
+        // `sans` deliberately — the storefront stacks must not shift.
+        bangla: ['"Hind Siliguri"', 'Inter', 'system-ui', 'sans-serif'],
       },
       fontSize: {
         'display-xl': ['3.5rem', { lineHeight: '4rem', letterSpacing: '-0.02em', fontWeight: '700' }],

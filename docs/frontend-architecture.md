@@ -10,7 +10,8 @@
 
 ### Storefront (`src/components/storefront/`)
 - `Header` — Sticky header with backdrop-blur, centered brand name (Playfair Display), desktop nav links (hidden on mobile), Material Symbols icons (search, person, favorite, shopping_bag), live search autocomplete (debounced `/api/search`, keyboard navigation), dark-mode toggle, mobile hamburger menu, wishlist/cart icons with counts
-- `Footer` — `bg-editorial-ink` dark background, 4-column responsive grid, newsletter form, social SVG icons, dynamic links from DB, Bangladesh-focused branding
+- `CategoryMegaMenu` — desktop category dropdown opened from the Collections nav trigger. One column per parent category, its name as a linked column title, subcategories listed under a `›` marker, plus a sticky "Shop by Category" bar with a "View All" escape hatch. Purely presentational: the panel is a full-bleed bar anchored under the header band, and `Header` owns all open/close state, handing down the hover handlers that keep it alive while the pointer crosses the gap. Desktop only (`lg+`); mobile category browsing stays in `MobileMenuDrawer`
+- `Footer` — `bg-editorial-ink` dark background, 4-column responsive grid, newsletter form, social SVG icons, company links from admin-managed Pages (published `Page` rows → `/pages/[slug]`), Bangladesh-focused branding
 - `CartDrawer` — slide-out mini cart synced to localStorage
 - `AnnouncementBar` — Full-width dark strip (`bg-editorial-ink`), centered uppercase text, configurable via DB `announcementText`, enabled by default in Header
 - `GoogleTagManager` + `PageViewTracker` — GTM injection and SPA `page_view` events
@@ -36,7 +37,7 @@
 
 ### Homepage partials (`app/(storefront)/(home)/_partials/`)
 - `Hero` — DB-driven hero slider
-- `FilterSidebar` (desktop) / `MobileCategoryChips` (mobile) — category navigation
+- `FilterSidebar` (desktop) / `MobileCategoryChips` (mobile) — category navigation. `FilterSidebar` is also used by `/products` and `/categories/[slug]`; on both, category rows are links to `/categories/<slug>` rather than a `?category=` filter, since the two pages read different params. Pass `activeSlug` (category pages) or `priceCeiling` (both) to it.
 - `ProductGrid` + `SortBar` — product grid with sorting
 
 ### Shared
@@ -54,7 +55,7 @@
 
 ## State Management
 - **Cart:** localStorage via `src/lib/cartStorage.js` (key `cabinet-closet-cart`). Add/update/remove/clear operations dispatch a `cart-updated` window event so Header/CartDrawer stay in sync. No server-side cart. `productToCartItem(product, quantity, variant)` is the single definition of the cart payload shape — `variantId` must keep matching the `productSlug` + `variantId` merge key or the same product lands in the cart twice.
-- **Wishlist:** localStorage via `src/lib/wishlistStorage.js` (key `cabinet-closet-wishlist`) with `wishlist-updated` event. The wishlist page hydrates stored IDs through `POST /api/wishlist`.
+- **Wishlist:** localStorage via `src/lib/wishlistStorage.js` (key `cabinet-closet-wishlist`) with `wishlist-updated` event. The wishlist page hydrates stored IDs through `POST /api/wishlist`, which returns both `products` and `missingIds` — IDs that no longer resolve to a `publish` product. Callers pass `missingIds` to `pruneWishlist()`, so the stored list self-heals and the header badge and the wishlist page can never disagree on the count.
 - **Product page state:** selected variant, quantity, dynamic pricing — localized to `ProductDetailClient`.
 - **Checkout state:** customer name, mobile, address, shipping area, delivery charge selection.
 - **Device fingerprint:** `useDeviceFingerprint` hook caches FingerprintJS visitorId in localStorage (`device-hash`) and sends it with checkout.
@@ -64,6 +65,13 @@
 - The cart and checkout pages read the cart **only** on mount, so both listen for `cart-updated` — otherwise items added from the upsell bundle would never reach the line items, the totals, or the submitted order.
 - The bundle itself must not react to its own writes. It sets a ref around its `addToCart` calls to swallow the synchronous `cart-updated` events they fire, and stops listening entirely once the customer has added from it — otherwise the rail swaps its own add-ons out from under them right after "Add all".
 - The sticky checkout `<aside>` is bounded with `lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto`, since a 3-item bundle plus the summary can otherwise grow taller than the viewport and push the Place Order button out of reach.
+
+### Category mega-menu state
+- The tree is built **server-side** in `app/(storefront)/layout.jsx` — `prisma.category.findMany({ select: { id, name, slug, parentId } })` folded by `buildCategoryTreeForMenu()` (`src/lib/categoryTree.js`) and passed down as the `categories` prop. Selecting only the four rendered fields keeps the payload serialised into the client `Header` on every storefront page cheap. The query is `.catch(() => [])`, so a database hiccup degrades to an empty menu instead of a 500.
+- Only **two levels** are consumed (parent column + direct children). `buildCategoryTree()` treats a row whose `parentId` points outside the result set as a root, so an orphaned subcategory stays reachable rather than vanishing. Children are alphabetised so columns read predictably regardless of fetch order.
+- Opening is driven by `onMouseEnter`/`onFocus` on the trigger; closing by a **deferred** `scheduleMegaClose` (`MEGA_CLOSE_DELAY_MS`, 140ms). Without the grace period the panel unmounts while the cursor is still crossing the gap between the header band and the panel. Any navigation (`usePathname` effect) and `Escape` also close it, and the pending timer is cleared on unmount.
+- The panel is a **sibling** of the header band inside `<header>`, not a child of the nav, so `top-full` resolves against the whole header rather than the ~32px trigger row. The outer positioning layer is `pointer-events-none` so the gutters beside the panel do not swallow clicks; hover handling stays on the panel itself, since putting it on the outer layer would open the menu on any sweep across that strip.
+- `Escape` and the timer both funnel through the same `closeMega`, so there is a single dismissal path.
 
 ## Analytics & Tracking
 - `src/lib/gtm.js` exposes `pushDataLayer(event, data)`.

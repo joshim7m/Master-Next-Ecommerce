@@ -17,5 +17,11 @@ export async function POST(request) {
     orderBy: { createdAt: 'desc' },
   });
 
-  return NextResponse.json({ products });
+  /* Ids we hold but can no longer resolve — deleted products, or ones since
+     moved out of `publish`. They can never render, so the client is told which
+     to drop rather than counting them forever. */
+  const found = new Set(products.map((p) => p.id));
+  const missingIds = ids.filter((id) => !found.has(id));
+
+  return NextResponse.json({ products, missingIds });
 }

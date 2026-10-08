@@ -1,6 +1,6 @@
 # Data Model
 
-This document mirrors the actual Prisma schema (`prisma/schema.prisma`). The database is PostgreSQL and the schema contains **18 models**. Status fields are plain `String`s (no Prisma enums). Schema changes are managed through 18 migrations under `prisma/migrations/`.
+This document mirrors the actual Prisma schema (`prisma/schema.prisma`). The database is PostgreSQL and the schema contains **21 models**. Status fields are plain `String`s (no Prisma enums). Schema changes are managed through 3 migrations under `prisma/migrations/` (a consolidated baseline plus `add_order_discount` and `add_page_model`).
 
 ## Catalog
 
@@ -74,7 +74,8 @@ Admin/customer accounts in one table.
 ### Order
 - `id` (UUID), `orderNo` (unique, 6-digit generated at checkout)
 - `userId?` → nullable User (guest checkout supported)
-- `total` (Decimal), `orderStatus` (String: pending → processing → completed / cancelled)
+- `total` (Decimal) — derived, see [Order total](#order-total)
+- `orderStatus` (String: pending → processing → completed / cancelled)
 - Relations: 1-1 `details`, 1-M `items`
 - Indexes: userId, orderNo, orderStatus
 
@@ -83,7 +84,17 @@ Shipping snapshot attached to each order.
 - `orderId` (unique FK → Order)
 - `customerName?`, `shippingAddress`, `phoneNumber?`
 - `shippingArea` (String: "Inside Dhaka" | "Outside Dhaka"), `deliveryCharge` (Decimal: 50 or 120 BDT)
+- `discount` (Decimal, default `0`) — **flat amount in BDT, not a percentage.** Set by an admin on the order detail page; editable only while the order is not `completed`/`cancelled`.
 - `ipAddress?`, `deviceHash?` — captured at checkout for fraud prevention
+
+### Order total
+`Order.total` is **derived, never entered directly**:
+`total = Σ(OrderItem.purchasePrice × OrderItem.quantity) + deliveryCharge − discount`, floored at `0`.
+`recalculateOrderTotal()` in `src/actions/orders.js` is the single place that recomputes it, called
+whenever an item quantity changes, an item is deleted, or the delivery charge / discount is edited.
+A discount larger than `subtotal + deliveryCharge` is capped server-side so the total cannot go
+negative. Every consumer (admin list, detail, dashboard, sales report) reads the stored `total`,
+so those views need no change.
 
 ### OrderItem
 Line items snapshot (decoupled from live catalog data).
@@ -115,6 +126,21 @@ Homepage carousel slides.
 Footer social links.
 - `id` (cuid), `name`, `url`, `icon?`, `order` (default 0), `isActive` (default true)
 
+### PromoBanner
+Homepage promotional banner strip.
+- `id` (cuid), `image?`, `title?`, `subtitle?`, `tags?`, `buttonText?`, `buttonLink?`, `trustLabels?`
+- `isActive` (Boolean, default true)
+
+## Content Pages (CMS)
+
+### Page
+Editable site pages (Privacy Policy, Terms, About, …) managed from the admin at `/admin/settings/pages` and rendered on the storefront.
+- `id` (UUID), `name`, `slug` (unique)
+- `content` (HTML from the Tiptap rich-text editor)
+- `metaDescription?` (SEO)
+- `status` (String, default `"publish"`) — only published pages render at `/pages/[slug]`; drafts 404
+- Indexes: status, name
+
 ## Blog CMS
 
 ### BlogCategory
@@ -137,6 +163,22 @@ Product ads injected into blog post content.
 ### BlogPostAdvertisement
 Explicit join table with composite PK (`blogPostId`, `advertisementId`).
 
+## Courier
+
+### CourierBooking
+One booking per order — the parcel handed to a courier from the admin order page (`docs/plan-courier-booking.md`).
+- `id` (UUID), `provider` (`steadfast` | `pathao` | `redx`), `consignmentId` (unique per provider), `orderId` (unique → at most one booking per order)
+- `trackingCode?`, `trackingLink?`, `courierStatus` (provider status as reported), `orderStatus` (mapped store status at last sync)
+- `bookedAt`, `lastSyncedAt?`, `lastEventKey?` (webhook idempotency), `bookedBy?` (admin user)
+- Indexes: (provider, courierStatus); guarded writes via `src/lib/courierSync.js`, webhook at `POST /api/webhooks/courier/[provider]`
+
+### CourierService
+Admin-managed courier services (Settings → Courier Services). Rows are the **only** source of courier credentials — there is deliberately no `.env` fallback (resolution in `src/lib/couriers/credentials.js`); custom rows list providers that have no adapter yet.
+- `id` (UUID), `provider` (unique slug: `steadfast` | `pathao` | `redx` | custom), `name`, `enabled` (default true), `sortOrder` (custom ordering)
+- Credentials (nullable, server-only — never returned to the client): `apiKey?`, `secretKey?`, `clientId?`, `clientSecret?`, `webhookToken?`, `baseUrl?`
+- `trackingUrl?` (template with `{trackingCode}`), `notes?`
+- Indexes: (enabled)
+
 ## Migration History (summary)
 
-18 migrations: init → category/product/variant refinements → site settings singleton → hero sliders → social links → announcement text → SKU/quantity fields → notification settings (telegram/GTM) → whatsapp number → product featured flag → dynamic variant options (flattened `size`/`color` columns migrated into a positional JSONB `options` array + new `ProductOption` table; backfill maps old data to Size/Color).
+The consolidated baseline (`20261004123354_init`) folds in 18 earlier migrations: init → category/product/variant refinements → site settings singleton → hero sliders → social links → announcement text → SKU/quantity fields → notification settings (telegram/GTM) → whatsapp number → product featured flag → dynamic variant options (flattened `size`/`color` columns migrated into a positional JSONB `options` array + new `ProductOption` table; backfill maps old data to Size/Color). On top of it: `20261005122155_add_order_discount` (OrderDetails.discount), `20261007051530_add_page_model` (CMS `Page` table), `20261007144130_add_courier_booking` (courier booking + status sync) and `20261007153018_add_courier_service` (Settings → Courier Services).

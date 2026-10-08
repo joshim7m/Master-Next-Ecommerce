@@ -25,24 +25,23 @@ export async function generateMetadata({ params }) {
   const siteName = siteNameOf(settings);
   const siteUrl = siteUrlOf(settings);
 
-  const category = product.categories?.[0]?.name || '';
   const price = Number(product.sale_price || product.unite_price).toLocaleString();
   const title = product.title;
   const description =
-    product.metaDescription ||
-    ((product.description || `Buy ${product.title} online at ${siteName}.`) +
-    ` ৳${price} — Shop now with cash on delivery across Bangladesh. ${category ? `Category: ${category}.` : ''}`);
+    product.metaDescription?.trim() ||
+    product.description?.trim() ||
+    undefined;
 
   const keywords = product.tags
     ? product.tags.split(',').map(k => k.trim()).filter(Boolean)
-    : [product.title, category, 'lingerie Bangladesh', 'buy online BD', siteName].filter(Boolean);
+    : undefined;
 
-  const imageUrl = product.images?.[0]?.image_path || `${siteUrl}/api/og?title=${encodeURIComponent(product.title)}&subtitle=${encodeURIComponent(`৳${price} — Shop now at ${siteName}`)}&type=product&price=${encodeURIComponent(price)}&siteName=${encodeURIComponent(siteName)}`;
+  const imageUrl = product.images?.[0]?.image_path || `${siteUrl}/api/og?title=${encodeURIComponent(product.title)}&subtitle=${encodeURIComponent(`৳${price} · ${siteName}`)}&type=product&price=${encodeURIComponent(price)}&siteName=${encodeURIComponent(siteName)}`;
 
   return {
     title: { absolute: `${product.title} — ${siteName}` },
-    description,
-    keywords,
+    ...(description ? { description } : {}),
+    ...(keywords ? { keywords } : {}),
     alternates: {
       canonical: `/products/${slug}`,
     },
@@ -52,7 +51,7 @@ export async function generateMetadata({ params }) {
       url: `${siteUrl}/products/${slug}`,
       siteName,
       title: `${product.title} — ${siteName}`,
-      description,
+      ...(description ? { description } : {}),
       images: [
         {
           url: imageUrl,
@@ -65,7 +64,7 @@ export async function generateMetadata({ params }) {
     twitter: {
       card: 'summary_large_image',
       title: `${product.title} — ${siteName}`,
-      description,
+      ...(description ? { description } : {}),
       images: [imageUrl],
     },
   };

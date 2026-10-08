@@ -61,7 +61,7 @@ export default function ProductGrid({ products, pageSize = 10 }) {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {displayed.map((product, i) => (
           <div key={product.id} className="animate-fade-in">
             <TrendingCard product={product} index={i} />

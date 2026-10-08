@@ -3,7 +3,7 @@ import prisma from '../../../src/lib/prisma';
 import BlogCard from '../../../src/components/storefront/BlogCard';
 import LoadMorePosts from '../../../src/components/storefront/LoadMorePosts';
 import { getSiteSettings } from '../../../src/lib/getSiteSettings';
-import { siteNameOf, siteUrlOf } from '../../../src/lib/siteSettings';
+import { siteNameOf, siteUrlOf, seoDescription } from '../../../src/lib/siteSettings';
 
 export async function generateMetadata({ searchParams }) {
   const params = await searchParams;
@@ -15,32 +15,29 @@ export async function generateMetadata({ searchParams }) {
   ]);
   const siteName = siteNameOf(settings);
   const siteUrl = siteUrlOf(settings);
+  const description = seoDescription(settings);
 
   const title = category
-    ? `${category.title} Articles | ${siteName} Blog`
-    : `Blog | ${siteName} — Lingerie, Fashion & Style Tips`;
-
-  const description = category
-    ? `Read our latest ${category.title} articles at ${siteName} Bangladesh. Shop online with cash on delivery.`
-    : `Read our latest articles about lingerie, women's fashion, intimate wear tips, and style guides at ${siteName} Bangladesh. Cash on delivery, discreet packaging.`;
+    ? `${category.title} Articles | ${siteName}`
+    : `Blog | ${siteName}`;
 
   return {
     title: { absolute: title },
-    description,
+    ...(description ? { description } : {}),
     alternates: {
       canonical: category ? `/blogs?category=${category.slug}` : '/blogs',
     },
     openGraph: {
       type: 'website',
       title,
-      description,
+      ...(description ? { description } : {}),
       url: `${siteUrl}${category ? `/blogs?category=${category.slug}` : '/blogs'}`,
       siteName,
     },
     twitter: {
       card: 'summary_large_image',
       title,
-      description,
+      ...(description ? { description } : {}),
     },
   };
 }
@@ -108,7 +105,7 @@ export default async function BlogListingPage({ searchParams }) {
     '@context': 'https://schema.org',
     '@type': 'Blog',
     name: `${siteName} Blog`,
-    description: `Tips, guides, and inspiration for lingerie, women's fashion, and intimate wear — from ${siteName}.`,
+    description: `Tips, guides, and inspiration from ${siteName}.`,
     url: `${siteUrl}/blogs`,
     blogPost: posts.slice(0, 10).map((p) => ({
       '@type': 'BlogPosting',
@@ -134,7 +131,7 @@ export default async function BlogListingPage({ searchParams }) {
 
         <div className="mb-8">
           <h1 className="font-display text-headline-md font-bold text-on-surface dark:text-dark-text">Blog</h1>
-          <p className="mt-1 text-muted dark:text-dark-muted">Tips, guides, and inspiration for lingerie, fashion, and intimate wear</p>
+          <p className="mt-1 text-muted dark:text-dark-muted">Tips, guides, and inspiration from {siteName}</p>
         </div>
 
         <div className="flex flex-col gap-8 lg:flex-row">

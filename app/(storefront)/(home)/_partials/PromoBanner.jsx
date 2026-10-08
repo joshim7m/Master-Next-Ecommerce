@@ -168,8 +168,8 @@ export default function PromoBanner({ banner = null, categories = [] }) {
 
             <p className="max-w-md text-sm leading-relaxed text-muted dark:text-dark-muted md:text-base">
               {hasImages
-                ? `Discover handpicked ${featured.name} styles crafted for comfort, style and everyday confidence — delivered discreetly across Bangladesh.`
-                : 'Discover handpicked styles crafted for comfort, style and everyday confidence — delivered discreetly across Bangladesh.'}
+                ? `Discover handpicked ${featured.name} — curated for you.`
+                : 'Discover our latest collection — curated for you.'}
             </p>
 
             <Link
@@ -184,7 +184,7 @@ export default function PromoBanner({ banner = null, categories = [] }) {
 
             {/* Trust chips */}
             <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2">
-              {['Cash on Delivery', 'Discreet Packaging', 'Nationwide Delivery'].map((item) => (
+              {['Cash on Delivery', 'Nationwide Delivery', 'Easy Returns'].map((item) => (
                 <span key={item} className="inline-flex items-center gap-1.5 text-xs font-medium text-muted dark:text-dark-muted">
                   <svg className="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

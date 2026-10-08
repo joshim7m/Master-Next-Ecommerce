@@ -5,47 +5,35 @@ import GoogleTagManager from '@/src/components/storefront/GoogleTagManager';
 import PageViewTracker from '@/src/components/storefront/PageViewTracker';
 import prisma from '@/src/lib/prisma';
 import { getSiteSettings } from '@/src/lib/getSiteSettings';
-import { siteNameOf, siteUrlOf, brandSuffix } from '@/src/lib/siteSettings';
+import { siteNameOf, siteUrlOf, brandSuffix, seoDescription, seoKeywords } from '@/src/lib/siteSettings';
+import { buildCategoryTreeForMenu } from '@/src/lib/categoryTree';
 
 export async function generateMetadata() {
   const settings = await getSiteSettings();
   const siteName = siteNameOf(settings);
   const siteUrl = siteUrlOf(settings);
   const suffix = brandSuffix(settings);
-  const defaultTitle = settings.metaTitle
-    ? `${settings.metaTitle} — Bangladesh's Trusted Online Lingerie & Women's Intimates Store`
-    : `${siteName} — Bangladesh's Trusted Online Lingerie & Women's Intimates Store`;
-  const description =
-    settings.metaDescription ||
-    `Shop premium lingerie, bras, panties, nightwear, and women's intimate apparel at ${siteName}. ` +
-      'We offer discreet packaging, cash on delivery across Bangladesh, and sizes that fit every body. ' +
-      'From everyday comfort to something a little special — delivered right to your doorstep in Dhaka, Chittagong, Sylhet, and everywhere in between.';
-  const keywords = settings.metaKeywords
-    ? settings.metaKeywords.split(',').map((k) => k.trim()).filter(Boolean)
-    : [
-        'lingerie Bangladesh',
-        'bra shop online BD',
-        'panty buy Bangladesh',
-        'nightwear for women Bangladesh',
-        'women innerwear online Dhaka',
-        'sexy lingerie Bangladesh',
-        'bra panty set BD',
-        'night dress women',
-        'intimate apparel Bangladesh',
-        'women underwear online shopping',
-        'Secret clothing Bangladesh',
-        siteName,
-      ];
-  const ogSubtitle = description.slice(0, 120);
-  const ogImage = settings.ogImage || `${siteUrl}/api/og?title=${encodeURIComponent(siteName)}&subtitle=${encodeURIComponent(ogSubtitle)}&siteName=${encodeURIComponent(siteName)}`;
+  // Title is the admin's site name / metaTitle only — no hardcoded slogan.
+  // Description and keywords are emitted only when the admin entered them.
+  const defaultTitle = settings.metaTitle || siteName;
+  const description = seoDescription(settings);
+  const keywords = seoKeywords(settings);
+
+  const ogQuery = new URLSearchParams({
+    title: siteName,
+    type: 'website',
+    siteName,
+    ...(description ? { subtitle: description.slice(0, 120) } : {}),
+  });
+  const ogImage = settings.ogImage || `${siteUrl}/api/og?${ogQuery.toString()}`;
 
   return {
     title: {
       default: defaultTitle,
       template: `%s | ${suffix}`,
     },
-    description,
-    keywords,
+    ...(description ? { description } : {}),
+    ...(keywords ? { keywords } : {}),
     authors: [{ name: siteName }],
     creator: siteName,
     publisher: siteName,
@@ -59,7 +47,7 @@ export async function generateMetadata() {
       url: siteUrl,
       siteName,
       title: defaultTitle,
-      description,
+      ...(description ? { description } : {}),
       images: [
         {
           url: ogImage,
@@ -72,7 +60,7 @@ export async function generateMetadata() {
     twitter: {
       card: 'summary_large_image',
       title: defaultTitle,
-      description,
+      ...(description ? { description } : {}),
       images: [ogImage],
       creator: `@${siteName.replace(/\s+/g, '').toLowerCase()}`,
     },
@@ -87,18 +75,35 @@ export async function generateMetadata() {
         'max-snippet': -1,
       },
     },
-    verification: {},
   };
 }
 
 export default async function StorefrontLayout({ children }) {
-  const [settings, socialLinks] = await Promise.all([
+  const [settings, socialLinks, categoryRows, footerPages] = await Promise.all([
     getSiteSettings(),
     prisma.socialLink.findMany({
       where: { isActive: true },
       orderBy: { order: 'asc' },
     }).catch(() => []),
+    // Only the four fields the mega-menu renders, so the whole tree is cheap
+    // to serialise into the client Header on every storefront page.
+    prisma.category
+      .findMany({
+        select: { id: true, name: true, slug: true, parentId: true },
+        orderBy: { name: 'asc' },
+      })
+      .catch(() => []),
+    // Published admin-managed pages, linked from the footer Company column.
+    prisma.page
+      .findMany({
+        where: { status: 'publish' },
+        select: { id: true, name: true, slug: true },
+        orderBy: { name: 'asc' },
+      })
+      .catch(() => []),
   ]);
+
+  const menuCategories = buildCategoryTreeForMenu(categoryRows);
 
   const siteName = siteNameOf(settings);
   const siteUrl = siteUrlOf(settings);
@@ -109,8 +114,6 @@ export default async function StorefrontLayout({ children }) {
     name: siteName,
     url: siteUrl,
     logo: settings.logo || `${siteUrl}/api/og?title=${encodeURIComponent(siteName)}&type=website`,
-    description:
-      `${siteName} — Bangladesh's trusted online store for premium lingerie, bras, panties, nightwear, and women's intimate apparel with discreet delivery nationwide.`,
     areaServed: {
       '@type': 'Country',
       name: 'Bangladesh',
@@ -151,6 +154,7 @@ export default async function StorefrontLayout({ children }) {
         logo={settings.logo}
         mobile={settings.mobile}
         announcementText={settings.announcementText}
+        categories={menuCategories}
       />
       <main id="main-content" className="flex-1">{children}</main>
       <Footer
@@ -160,6 +164,7 @@ export default async function StorefrontLayout({ children }) {
         address={settings.address}
         copyrightText={settings.copyrightText}
         socialLinks={socialLinks}
+        pages={footerPages}
       />
       </div>
     </>

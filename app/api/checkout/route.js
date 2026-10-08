@@ -3,6 +3,17 @@ import prisma from '../../../src/lib/prisma';
 import { sendOrderAlert } from '../../../src/lib/telegram';
 import { deleteIncompleteOrders } from '../../../src/lib/incompleteCheckout';
 
+// Latin + Bangla letters only, plus space/apostrophe/hyphen/full-stop.
+const NAME_REGEX = /^[\p{Script=Latin}\p{Script=Bengali}\p{Zs} '.-]+$/u;
+
+// Bangla names use combining marks (matra ো/ী, hasant ্, ...) that render as a
+// single glyph but count as extra code units. Strip them before measuring length.
+const BENGALI_COMBINING_MARKS = /[\u0981-\u0983\u09BC\u09BE-\u09CD\u09D7]/g;
+
+function visibleLength(value) {
+  return Array.from(value.replace(BENGALI_COMBINING_MARKS, '')).length;
+}
+
 export async function POST(request) {
   const body = await request.json();
   const { name, mobile, address, shippingArea, items, deviceHash, draftOrderNo } = body;
@@ -14,7 +25,17 @@ export async function POST(request) {
     null;
 
   if (!name || !mobile || !address || !shippingArea || !items?.length) {
-    return NextResponse.json({ error: 'Missing required checkout fields.' }, { status: 400 });
+    return NextResponse.json({ error: 'অনুগ্রহ করে সব তথ্য পূরণ করুন।' }, { status: 400 });
+  }
+
+  // Mirrors the client-side rules so a Bangla name is accepted and a bad one is
+  // rejected with the same message instead of an opaque server error.
+  const trimmedName = String(name).trim();
+  if (!trimmedName || !NAME_REGEX.test(trimmedName)) {
+    return NextResponse.json({ error: 'নাম সঠিকভাবে লিখুন (ইংরেজি বা বাংলা অক্ষর)।' }, { status: 400 });
+  }
+  if (visibleLength(trimmedName) > 20) {
+    return NextResponse.json({ error: 'নাম ২০ অক্ষরের মধ্যে হতে হবে।' }, { status: 400 });
   }
 
   if (deviceHash) {
@@ -24,7 +45,7 @@ export async function POST(request) {
 
     if (blockedDevice) {
       return NextResponse.json(
-        { error: 'You have been blocked from placing orders.' },
+        { error: 'আপনাকে অর্ডার করা থেকে বন্ধ করা হয়েছে।' },
         { status: 403 }
       );
     }
@@ -39,7 +60,7 @@ export async function POST(request) {
 
     if (pendingOrder) {
       return NextResponse.json(
-        { error: `You already have a pending order #${pendingOrder.order.orderNo}. Please wait for it to be processed.` },
+        { error: `আপনার একটি অর্ডার #${pendingOrder.order.orderNo} ইতোমধ্যে অপেক্ষমাণ আছে। অনুগ্রহ করে প্রক্রিয়া হওয়া পর্যন্ত অপেক্ষা করুন।` },
         { status: 403 }
       );
     }
@@ -61,7 +82,7 @@ export async function POST(request) {
       orderStatus: 'pending',
       details: {
         create: {
-          customerName: name,
+          customerName: trimmedName,
           shippingAddress: address,
           phoneNumber: mobile,
           shippingArea,
@@ -97,7 +118,7 @@ export async function POST(request) {
   sendOrderAlert({
     orderNo: order.orderNo,
     total: order.total.toString(),
-    name,
+    name: trimmedName,
     mobile,
     address,
     shippingArea,

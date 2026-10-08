@@ -2,14 +2,28 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { ChevronDown } from 'lucide-react';
 import { loadCart } from '../../lib/cartStorage';
+import { loadWishlist, pruneWishlist } from '../../lib/wishlistStorage';
 import CartDrawer from './CartDrawer';
 import AnnouncementBar from './AnnouncementBar';
 import MobileMenuDrawer from './MobileMenuDrawer';
+import CategoryMegaMenu from './CategoryMegaMenu';
 import { DEFAULT_BRAND } from '../../lib/siteSettings';
 
 const DEBOUNCE_MS = 300;
+
+/** Grace period between the pointer leaving the trigger and the panel closing.
+ *  Without it the menu snaps shut while the cursor is still crossing the gap
+ *  between the header band and the panel below it. */
+const MEGA_CLOSE_DELAY_MS = 140;
+
+const MEGA_MENU_ID = 'header-categories-mega-menu';
+
+/** Count pill shared by the cart and wishlist action icons. */
+const COUNT_BADGE_CLASS =
+  'absolute right-1.5 top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-on-primary ring-2 ring-white dark:ring-[#151021]';
 
 const NAV_LINKS = [
   { href: '/new-arrivals', label: 'New Arrivals' },
@@ -17,7 +31,16 @@ const NAV_LINKS = [
   { href: '/hot-sales', label: 'Hot Sales' },
 ];
 
-export default function Header({ siteName, logo, mobile, announcementText }) {
+/** Shared by every desktop nav item so the dropdown trigger is styled
+ *  identically to the plain links beside it. */
+const NAV_LINK_CLASS =
+  'group relative rounded-full px-3 py-2 font-label-caps text-[0.72rem] tracking-[0.1em] text-on-surface/70 transition hover:bg-white/80 hover:text-primary dark:text-dark-text/70 dark:hover:bg-white/5 dark:hover:text-primary';
+
+/** The animated underline that sits under a nav item on hover. */
+const NAV_UNDERLINE_CLASS =
+  'absolute -bottom-0.5 left-1/2 h-0.5 w-0 -translate-x-1/2 rounded-full bg-gradient-to-r from-primary to-secondary transition-all duration-300 group-hover:w-[calc(100%-24px)]';
+
+export default function Header({ siteName, logo, mobile, announcementText, categories = [] }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,13 +50,55 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
   const [recentProducts, setRecentProducts] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [wishlistCount, setWishlistCount] = useState(0);
   const [dark, setDark] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [megaOpen, setMegaOpen] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     setDark(document.documentElement.classList.contains('dark'));
   }, []);
+
+  /* ---------------- Collections mega-menu ---------------- */
+
+  const megaTimerRef = useRef(null);
+
+  const clearMegaTimer = useCallback(() => {
+    if (megaTimerRef.current) {
+      clearTimeout(megaTimerRef.current);
+      megaTimerRef.current = null;
+    }
+  }, []);
+
+  const openMega = useCallback(() => {
+    clearMegaTimer();
+    setMegaOpen(true);
+  }, [clearMegaTimer]);
+
+  const closeMega = useCallback(() => {
+    clearMegaTimer();
+    setMegaOpen(false);
+  }, [clearMegaTimer]);
+
+  /** Deferred so the pointer can travel from the trigger down into the panel
+   *  without the panel unmounting underneath it. */
+  const scheduleMegaClose = useCallback(() => {
+    clearMegaTimer();
+    megaTimerRef.current = setTimeout(() => {
+      megaTimerRef.current = null;
+      setMegaOpen(false);
+    }, MEGA_CLOSE_DELAY_MS);
+  }, [clearMegaTimer]);
+
+  // Any navigation dismisses the panel.
+  useEffect(() => {
+    closeMega();
+  }, [pathname, closeMega]);
+
+  // Never leave a pending close behind on unmount.
+  useEffect(() => clearMegaTimer, [clearMegaTimer]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -49,13 +114,50 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
   };
 
   useEffect(() => {
-    setCartCount(loadCart().reduce((s, i) => s + i.quantity, 0));
-    const handler = () => setCartCount(loadCart().reduce((s, i) => s + i.quantity, 0));
-    window.addEventListener('storage', handler);
-    window.addEventListener('cart-updated', handler);
+    const readCart = () => loadCart().reduce((s, i) => s + i.quantity, 0);
+    /* `storage` covers other tabs; the in-app events cover this tab. */
+    const onCart = () => setCartCount(readCart());
+
+    /* The stored list is only ids, and ids outlive the products they point at.
+       Counting it directly showed 13 against a wishlist page rendering 4, so
+       the count has to come from the same resolved products the page renders —
+       and any id the server can no longer resolve gets dropped on the way. */
+    let cancelled = false;
+    const onWishlist = async () => {
+      const ids = loadWishlist();
+      if (ids.length === 0) {
+        if (!cancelled) setWishlistCount(0);
+        return;
+      }
+      try {
+        const res = await fetch('/api/wishlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids }),
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        setWishlistCount((data.products || []).length);
+        pruneWishlist(data.missingIds);
+      } catch {
+        /* Offline or the request failed: fall back to the stored length so the
+           badge still reflects intent rather than collapsing to zero. */
+        if (!cancelled) setWishlistCount(ids.length);
+      }
+    };
+
+    onCart();
+    onWishlist();
+    window.addEventListener('storage', onCart);
+    window.addEventListener('cart-updated', onCart);
+    window.addEventListener('storage', onWishlist);
+    window.addEventListener('wishlist-updated', onWishlist);
     return () => {
-      window.removeEventListener('storage', handler);
-      window.removeEventListener('cart-updated', handler);
+      cancelled = true;
+      window.removeEventListener('storage', onCart);
+      window.removeEventListener('cart-updated', onCart);
+      window.removeEventListener('storage', onWishlist);
+      window.removeEventListener('wishlist-updated', onWishlist);
     };
   }, []);
 
@@ -72,11 +174,12 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
       if (e.key === 'Escape') {
         setSearchOpen(false);
         setMobileMenuOpen(false);
+        closeMega();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [closeMega]);
 
   useEffect(() => {
     if (searchOpen) {
@@ -187,31 +290,60 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
 
           {/* Desktop nav links — adjacent to the logo */}
           <nav className="hidden items-center gap-3 lg:flex" aria-label="Main navigation">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="group relative rounded-full px-3 py-2 font-label-caps text-[0.72rem] tracking-[0.1em] text-on-surface/70 transition hover:bg-white/80 hover:text-primary dark:text-dark-text/70 dark:hover:bg-white/5 dark:hover:text-primary"
-              >
-                <span className="relative flex items-center gap-0.5">
-                  {link.label}
-                  {link.href === '/hot-sales' && (
-                    <span className="absolute -right-4 -top-2.5 flex h-5 w-5 items-center justify-center">
-                      <span className="fire-ping absolute inset-0 rounded-full bg-orange-500/50" />
-                      <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 shadow-[0_0_10px_rgba(249,115,22,0.7)] ring-2 ring-white dark:ring-[#151021]">
-                        <span
-                          className="flame-flicker material-symbols-outlined text-[12px] text-white"
-                          style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                          local_fire_department
+            {NAV_LINKS.map((link) =>
+              link.href === '/categories' ? (
+                /* Collections — links to the full listing, and additionally
+                   drives the category mega-menu on hover / focus / click. */
+                <span
+                  key={link.href}
+                  className="relative"
+                  onMouseEnter={openMega}
+                  onMouseLeave={scheduleMegaClose}
+                >
+                  <Link
+                    href={link.href}
+                    className={NAV_LINK_CLASS}
+                    aria-expanded={megaOpen}
+                    aria-haspopup="true"
+                    aria-controls={MEGA_MENU_ID}
+                    onFocus={openMega}
+                    onClick={closeMega}
+                  >
+                    <span className="relative flex items-center gap-1">
+                      {link.label}
+                      <ChevronDown
+                        size={13}
+                        aria-hidden="true"
+                        className={`transition-transform duration-200 ${megaOpen ? 'rotate-180' : ''}`}
+                      />
+                    </span>
+                    <span
+                      className={`${NAV_UNDERLINE_CLASS} ${megaOpen ? '!w-[calc(100%-24px)]' : ''}`}
+                    />
+                  </Link>
+                </span>
+              ) : (
+                <Link key={link.href} href={link.href} className={NAV_LINK_CLASS}>
+                  <span className="relative flex items-center gap-0.5">
+                    {link.label}
+                    {link.href === '/hot-sales' && (
+                      <span className="absolute -right-4 -top-2.5 flex h-5 w-5 items-center justify-center">
+                        <span className="fire-ping absolute inset-0 rounded-full bg-orange-500/50" />
+                        <span className="relative flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-yellow-400 via-orange-500 to-red-600 shadow-[0_0_10px_rgba(249,115,22,0.7)] ring-2 ring-white dark:ring-[#151021]">
+                          <span
+                            className="flame-flicker material-symbols-outlined text-[12px] text-white"
+                            style={{ fontVariationSettings: "'FILL' 1" }}
+                          >
+                            local_fire_department
+                          </span>
                         </span>
                       </span>
-                    </span>
-                  )}
-                </span>
-                <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-0 -translate-x-1/2 rounded-full bg-gradient-to-r from-primary to-secondary transition-all duration-300 group-hover:w-[calc(100%-24px)]" />
-              </Link>
-            ))}
+                    )}
+                  </span>
+                  <span className={NAV_UNDERLINE_CLASS} />
+                </Link>
+              )
+            )}
           </nav>
 
           {/* Left (mobile): hamburger + brand */}
@@ -257,14 +389,19 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
               <span className="material-symbols-outlined text-[22px]">search</span>
             </button>
 
-            {/* Account — hidden on mobile */}
+            {/* Wishlist — hidden on mobile */}
             <Link
               href="/wishlist"
-              className="hidden h-10 w-10 items-center justify-center rounded-full text-on-surface/70 transition hover:bg-warm-sand hover:text-primary sm:flex sm:h-11 sm:w-11 dark:text-dark-text/70 dark:hover:bg-dark-card dark:hover:text-primary"
+              className="relative hidden h-10 w-10 items-center justify-center rounded-full text-on-surface/70 transition hover:bg-warm-sand hover:text-primary sm:flex sm:h-11 sm:w-11 dark:text-dark-text/70 dark:hover:bg-dark-card dark:hover:text-primary"
               title="Wishlist"
-              aria-label="Wishlist"
+              aria-label={wishlistCount > 0 ? `Wishlist, ${wishlistCount} items` : 'Wishlist'}
             >
               <span className="material-symbols-outlined text-[22px]">favorite_border</span>
+              {wishlistCount > 0 && (
+                <span className={COUNT_BADGE_CLASS}>
+                  {wishlistCount > 99 ? '99+' : wishlistCount}
+                </span>
+              )}
             </Link>
 
             {/* Cart */}
@@ -273,13 +410,11 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
               onClick={() => setCartOpen(true)}
               className="relative flex h-10 w-10 items-center justify-center rounded-full text-on-surface/70 transition hover:bg-white/80 hover:text-primary shadow-sm dark:text-dark-text/70 dark:hover:bg-white/10 dark:hover:text-primary"
               title="Cart"
-              aria-label="Cart"
+              aria-label={cartCount > 0 ? `Cart, ${cartCount} items` : 'Cart'}
             >
               <span className="material-symbols-outlined text-[22px]">shopping_cart</span>
               {cartCount > 0 && (
-                <span className="absolute right-1.5 top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-on-primary ring-2 ring-white dark:ring-[#151021]">
-                  {cartCount > 99 ? '99+' : cartCount}
-                </span>
+                <span className={COUNT_BADGE_CLASS}>{cartCount > 99 ? '99+' : cartCount}</span>
               )}
             </button>
 
@@ -298,6 +433,19 @@ export default function Header({ siteName, logo, mobile, announcementText }) {
           </div>
         </div>
       </div>
+
+      {/* Category mega-menu — a full-bleed bar anchored to the bottom of the
+          header band. Lives here (rather than inside the nav) so `top-full`
+          resolves against the whole header instead of the 32px trigger row. */}
+      {megaOpen && (
+        <CategoryMegaMenu
+          id={MEGA_MENU_ID}
+          categories={categories}
+          onMouseEnter={openMega}
+          onMouseLeave={scheduleMegaClose}
+          onNavigate={closeMega}
+        />
+      )}
 
       {/* Mobile menu drawer — slides in from the left */}
       <MobileMenuDrawer

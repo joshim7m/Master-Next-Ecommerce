@@ -1,31 +1,31 @@
 import Link from 'next/link';
 import prisma from '../../../../src/lib/prisma';
 import { getSiteSettings } from '../../../../src/lib/getSiteSettings';
-import { siteNameOf, siteUrlOf } from '../../../../src/lib/siteSettings';
+import { siteNameOf, siteUrlOf, seoDescription } from '../../../../src/lib/siteSettings';
 
 export async function generateMetadata() {
   const settings = await getSiteSettings();
   const siteName = siteNameOf(settings);
   const siteUrl = siteUrlOf(settings);
-  const title = `Blog Categories | ${siteName} — Browse All Topics`;
-  const description = `Browse all blog categories at ${siteName} Bangladesh. Find articles about lingerie, fashion, styling tips, nightwear, and more.`;
+  const description = seoDescription(settings);
+  const title = `Blog Categories | ${siteName}`;
 
   return {
     title: { absolute: title },
-    description,
+    ...(description ? { description } : {}),
     alternates: { canonical: '/blogs/categories' },
     robots: { index: true, follow: true },
     openGraph: {
       type: 'website',
       title,
-      description,
+      ...(description ? { description } : {}),
       url: `${siteUrl}/blogs/categories`,
       siteName,
     },
     twitter: {
       card: 'summary_large_image',
       title,
-      description,
+      ...(description ? { description } : {}),
     },
   };
 }

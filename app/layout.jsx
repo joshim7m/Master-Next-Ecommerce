@@ -1,27 +1,21 @@
 import './globals.css';
 import ThemeInit from '@/src/components/ThemeInit';
 import { getSiteSettings } from '@/src/lib/getSiteSettings';
-import { siteNameOf, brandSuffix } from '@/src/lib/siteSettings';
+import { siteNameOf, brandSuffix, seoDescription } from '@/src/lib/siteSettings';
 
 export async function generateMetadata() {
   const settings = await getSiteSettings();
   const siteName = siteNameOf(settings);
   const suffix = brandSuffix(settings);
-  const defaultTitle =
-    settings.metaTitle && settings.metaTitle !== siteName
-      ? `${settings.metaTitle} — Online Lingerie & Women's Intimates Store in Bangladesh`
-      : `${siteName} — Online Lingerie & Women's Intimates Store in Bangladesh`;
-  const description =
-    settings.metaDescription ||
-    `Shop premium lingerie, bras, panties, nightwear, and women's intimate apparel at ${siteName}. ` +
-      'Discreet packaging, cash on delivery, and free shipping options across Bangladesh.';
+  const defaultTitle = settings.metaTitle || siteName;
+  const description = seoDescription(settings);
 
   return {
     title: {
       default: defaultTitle,
       template: `%s | ${suffix}`,
     },
-    description,
+    ...(description ? { description } : {}),
     ...(settings.metaKeywords
       ? { keywords: settings.metaKeywords.split(',').map((k) => k.trim()).filter(Boolean) }
       : {}),
@@ -45,7 +39,7 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&family=Playfair+Display:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&family=Playfair+Display:wght@400;500;600;700&family=Hind+Siliguri:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
         <link
