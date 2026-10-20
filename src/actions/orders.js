@@ -293,6 +293,154 @@ export async function getOrders() {
   return serialize(orders);
 }
 
+const ORDERS_PAGE_SIZE = 20;
+/** The orders list never shows anything older than this rolling window. */
+const ORDERS_WINDOW_DAYS = 31;
+
+/**
+ * UTC instant of 00:00 Bangladesh time `daysAgo` days before today.
+ * Bangladesh has no DST, so whole-day arithmetic on the BD midnight is exact.
+ */
+function bdMidnightDaysAgo(daysAgo, now = new Date()) {
+  return new Date(bdMidnightUtc(now).getTime() - daysAgo * DAY_MS);
+}
+
+/** UTC instant of 00:00 Bangladesh time on a `YYYY-MM-DD` calendar date. */
+function bdDateKeyToUtc(key) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(key || ''));
+  if (!match) return null;
+  const [, year, month, day] = match;
+  return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)) - BD_OFFSET_MS);
+}
+
+/**
+ * Resolve the filter preset to a [from, to] window, clamped to the last 31
+ * Bangladesh days. `to` can end up before `from` (empty range) when a custom
+ * range lies entirely outside the window — the caller turns that into 0 rows.
+ */
+function resolveOrdersRange(preset, fromKey, toKey, now = new Date()) {
+  const todayStart = bdMidnightUtc(now);
+  const windowStart = bdMidnightDaysAgo(ORDERS_WINDOW_DAYS - 1, now);
+
+  let start = windowStart;
+  let end = now;
+
+  switch (preset) {
+    case 'today':
+      start = todayStart;
+      break;
+    case 'yesterday':
+      start = new Date(todayStart.getTime() - DAY_MS);
+      end = new Date(todayStart.getTime() - 1);
+      break;
+    case 'last7':
+      // Rolling window: today plus the previous six Bangladesh days.
+      start = bdMidnightDaysAgo(6, now);
+      break;
+    case 'custom': {
+      const customStart = bdDateKeyToUtc(fromKey);
+      const customEnd = bdDateKeyToUtc(toKey);
+      if (customStart && customEnd) {
+        start = customStart;
+        end = new Date(customEnd.getTime() + DAY_MS - 1);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  const clampedStart = start < windowStart ? windowStart : start;
+  const clampedEnd = end > now ? now : end;
+  // A range entirely before the window (or in the future) yields zero rows.
+  return { from: clampedStart, to: clampedEnd < clampedStart ? new Date(clampedStart.getTime() - 1) : clampedEnd };
+}
+
+/**
+ * One page (20) of orders for /admin/orders, filtered and paginated in the
+ * database. Covers only the last 31 Bangladesh days — by design, older orders
+ * are not reachable from this list.
+ */
+export async function getOrdersPage({
+  preset = 'today',
+  from = null,
+  to = null,
+  status = 'all',
+  search = '',
+  page = 1,
+} = {}) {
+  const range = resolveOrdersRange(preset, from, to);
+  const query = String(search || '').trim();
+
+  const where = {
+    createdAt: { gte: range.from, lte: range.to },
+    ...(status && status !== 'all' ? { orderStatus: status } : {}),
+    ...(query
+      ? {
+          OR: [
+            { orderNo: { contains: query, mode: 'insensitive' } },
+            { details: { is: { phoneNumber: { contains: query, mode: 'insensitive' } } } },
+          ],
+        }
+      : {}),
+  };
+
+  const total = await prisma.order.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / ORDERS_PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, Number(page) || 1), totalPages);
+
+  const orders = total
+    ? await prisma.order.findMany({
+        where,
+        include: { details: true, items: true, user: true },
+        orderBy: { createdAt: 'desc' },
+        skip: (safePage - 1) * ORDERS_PAGE_SIZE,
+        take: ORDERS_PAGE_SIZE,
+      })
+    : [];
+
+  return serialize({
+    orders,
+    total,
+    page: safePage,
+    pageSize: ORDERS_PAGE_SIZE,
+    totalPages,
+    from: range.from.toISOString(),
+    to: range.to.toISOString(),
+  });
+}
+
+/**
+ * All-time order counts for one phone number — the stats popup in the orders
+ * list, which must not be limited to the page (or 31-day window) on screen.
+ */
+export async function getCustomerOrderStats(phone) {
+  const mobile = String(phone || '').trim();
+  if (!mobile) {
+    return serialize({ name: null, total: 0, completed: 0, returned: 0, others: 0 });
+  }
+
+  const where = { details: { is: { phoneNumber: mobile } } };
+  const [total, completed, returned, latest] = await Promise.all([
+    prisma.order.count({ where }),
+    prisma.order.count({ where: { ...where, orderStatus: 'completed' } }),
+    prisma.order.count({ where: { ...where, orderStatus: 'return' } }),
+    prisma.order.findFirst({
+      where,
+      orderBy: { createdAt: 'desc' },
+      select: { details: { select: { customerName: true } } },
+    }),
+  ]);
+
+  return serialize({
+    name: latest?.details?.customerName || null,
+    total,
+    completed,
+    returned,
+    others: total - completed - returned,
+  });
+}
+
 export async function getOrderReport(fromISO, toISO) {
   const orders = await prisma.order.findMany({
     where: { createdAt: { gte: new Date(fromISO), lte: new Date(toISO) } },

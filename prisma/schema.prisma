@@ -227,6 +227,8 @@ model OrderDetails {
   customerName    String?
   shippingAddress String
   phoneNumber     String?
+  /// Internal admin-only note, edited from the order detail page.
+  orderNote       String?
   shippingArea    String
   deliveryCharge  Decimal
   discount        Decimal @default(0)
@@ -269,6 +271,8 @@ model SiteSetting {
   whatsappNumber   String?
   siteUrl          String?
   jwtSecret        String?
+  /// JSON array of delivery zones: `[{ "name": "Inside Dhaka", "charge": 80 }, ...]`.
+  deliveryAreas    String?
   metaTitle        String?
   metaDescription  String?
   metaKeywords     String?

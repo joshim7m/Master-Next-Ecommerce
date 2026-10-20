@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../../src/lib/prisma';
 import { deleteIncompleteOrders } from '../../../../src/lib/incompleteCheckout';
+import { getDeliveryAreas } from '../../../../src/lib/getDeliveryAreas';
+import { resolveAreaName, chargeForArea } from '../../../../src/lib/deliveryAreas';
 
 const MOBILE_REGEX = /^(013|014|015|016|017|018|019)\d{8}$/;
 
@@ -41,8 +43,10 @@ export async function POST(request) {
     return NextResponse.json({ error: 'আপনার কার্ট খালি।' }, { status: 400 });
   }
 
-  const shippingAreaValue = shippingArea === 'Outside Dhaka' ? 'Outside Dhaka' : 'Inside Dhaka';
-  const deliveryCharge = shippingAreaValue === 'Outside Dhaka' ? 120 : 50;
+  // Drafts use the same admin-configured zones as the real checkout.
+  const areas = await getDeliveryAreas();
+  const shippingAreaValue = resolveAreaName(areas, shippingArea);
+  const deliveryCharge = chargeForArea(areas, shippingAreaValue);
   const subtotal = items.reduce((sum, item) => {
     const price = Number(item.salePrice ?? item.price ?? 0);
     const quantity = Number(item.quantity ?? 0);

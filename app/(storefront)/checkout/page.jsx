@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadCart, clearCart } from '../../../src/lib/cartStorage';
 import { pushDataLayer } from '../../../src/lib/gtm';
+import { DEFAULT_DELIVERY_AREAS, chargeForArea } from '../../../src/lib/deliveryAreas';
 import useDeviceFingerprint from '../../../src/hooks/useDeviceFingerprint';
 import FrequentlyBoughtTogether from '../../../src/components/storefront/FrequentlyBoughtTogether';
 
@@ -61,6 +62,9 @@ export default function CheckoutPage() {
   const [cart, setCart] = useState([]);
   const [hydrated, setHydrated] = useState(false);
   const deviceHash = useDeviceFingerprint();
+  // Zones come from Settings → Site Config. Defaults match the previous hardcoded
+  // ৳80/৳120, so the first paint is unchanged while the configured list loads.
+  const [deliveryAreas, setDeliveryAreas] = useState(DEFAULT_DELIVERY_AREAS);
 
   useEffect(() => {
     setCart(loadCart());
@@ -86,9 +90,30 @@ export default function CheckoutPage() {
     }
   }, [deviceHash]);
 
+  // Pull the admin-configured zones; if the selected area vanished from the
+  // config, move the selection to the first available zone.
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/delivery-areas')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!alive || !Array.isArray(data?.areas) || data.areas.length === 0) return;
+        setDeliveryAreas(data.areas);
+        setForm((prev) =>
+          data.areas.some((area) => area.name === prev.shippingArea)
+            ? prev
+            : { ...prev, shippingArea: data.areas[0].name }
+        );
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (hydrated && cart.length > 0) {
-      const delivery = form.shippingArea === 'Outside Dhaka' ? 120 : 80;
+      const delivery = chargeForArea(deliveryAreas, form.shippingArea);
       const sub = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
       pushDataLayer('begin_checkout', {
         ecommerce: {
@@ -107,7 +132,7 @@ export default function CheckoutPage() {
     }
   }, [hydrated]);
 
-  const [form, setForm] = useState({ name: '', mobile: '', address: '', shippingArea: 'Inside Dhaka' });
+  const [form, setForm] = useState({ name: '', mobile: '', address: '', shippingArea: DEFAULT_DELIVERY_AREAS[0].name });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -170,7 +195,7 @@ export default function CheckoutPage() {
     return () => clearTimeout(timer);
   }, [form, cart, hydrated, submitting, deviceHash]);
 
-  const deliveryCharge = form.shippingArea === 'Outside Dhaka' ? 120 : 80;
+  const deliveryCharge = chargeForArea(deliveryAreas, form.shippingArea);
   const subtotal = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
   const total = subtotal + deliveryCharge;
 
@@ -225,7 +250,7 @@ export default function CheckoutPage() {
       lastDraftPayloadRef.current = '';
       sessionStorage.removeItem(DRAFT_KEY);
 
-      const delivery = form.shippingArea === 'Outside Dhaka' ? 120 : 80;
+      const delivery = chargeForArea(deliveryAreas, form.shippingArea);
       const sub = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
       sessionStorage.setItem('gtm_purchase', JSON.stringify({
         transaction_id: data.orderNo,
@@ -300,14 +325,11 @@ export default function CheckoutPage() {
             <div className="rounded-xl border border-border bg-warm-sand p-4 dark:border-dark-border dark:bg-dark-bg">
               <p className="text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Delivery Area</p>
               <div className="mt-3 flex flex-col gap-3 sm:flex-row">
-                {[
-                  { value: 'Inside Dhaka', charge: 80 },
-                  { value: 'Outside Dhaka', charge: 120 },
-                ].map((area) => {
-                  const checked = form.shippingArea === area.value;
+                {deliveryAreas.map((area) => {
+                  const checked = form.shippingArea === area.name;
                   return (
                     <label
-                      key={area.value}
+                      key={area.name}
                       className={`group relative flex flex-1 cursor-pointer items-center gap-3 overflow-hidden rounded-xl border p-4 transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] hover:shadow-md has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40 ${
                         checked
                           ? 'border-primary bg-white shadow-md ring-1 ring-primary/10 dark:bg-dark-card'
@@ -317,7 +339,7 @@ export default function CheckoutPage() {
                       <input
                         type="radio"
                         name="shippingArea"
-                        value={area.value}
+                        value={area.name}
                         checked={checked}
                         onChange={handleChange}
                         className="sr-only"
@@ -347,7 +369,7 @@ export default function CheckoutPage() {
                       <span className={`flex-1 text-sm font-medium transition-colors duration-300 ${
                         checked ? 'text-on-surface dark:text-dark-text' : 'text-on-surface/70 dark:text-dark-text/70 group-hover:text-on-surface dark:group-hover:text-dark-text'
                       }`}>
-                        {area.value}
+                        {area.name}
                       </span>
                       {/* Price Badge */}
                       <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import prisma from '../../../src/lib/prisma';
 import { sendOrderAlert } from '../../../src/lib/telegram';
 import { deleteIncompleteOrders } from '../../../src/lib/incompleteCheckout';
+import { getDeliveryAreas } from '../../../src/lib/getDeliveryAreas';
+import { resolveAreaName, chargeForArea } from '../../../src/lib/deliveryAreas';
 
 // Latin + Bangla letters only, plus space/apostrophe/hyphen/full-stop.
 const NAME_REGEX = /^[\p{Script=Latin}\p{Script=Bengali}\p{Zs} '.-]+$/u;
@@ -66,7 +68,12 @@ export async function POST(request) {
     }
   }
 
-  const deliveryCharge = shippingArea === 'Outside Dhaka' ? 120 : 50;
+  // Zones + charges are admin-configured (Settings → Site Config); the price is
+  // always recalculated here so the browser can't dictate it. Unknown or legacy
+  // area names fall back to the matching default zone.
+  const areas = await getDeliveryAreas();
+  const shippingAreaValue = resolveAreaName(areas, shippingArea);
+  const deliveryCharge = chargeForArea(areas, shippingAreaValue);
   const subtotal = items.reduce((sum, item) => {
     const price = Number(item.salePrice ?? item.price ?? 0);
     const quantity = Number(item.quantity ?? 0);
@@ -85,7 +92,7 @@ export async function POST(request) {
           customerName: trimmedName,
           shippingAddress: address,
           phoneNumber: mobile,
-          shippingArea,
+          shippingArea: shippingAreaValue,
           deliveryCharge,
           ipAddress,
           deviceHash: deviceHash || null,

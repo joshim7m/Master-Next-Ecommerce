@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { DEFAULT_DELIVERY_AREAS } from '../../../../src/lib/deliveryAreas';
 
 function Toast({ toast }) {
   if (!toast) return null;
@@ -48,16 +49,16 @@ function Skeleton() {
   );
 }
 
-function InputField({ label, type = 'text', value, onChange, onBlur, placeholder, hint, error }) {
-  const baseCls =
-    'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-[#2f0f6b] focus:outline-none focus:ring-2 focus:ring-[#2f0f6b]/15 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]';
-  const errorCls =
-    'w-full rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 dark:border-red-500/60 dark:bg-slate-900 dark:text-white dark:focus:ring-red-500/30';
+const baseInputCls =
+  'w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-[#2f0f6b] focus:outline-none focus:ring-2 focus:ring-[#2f0f6b]/15 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]';
+const errorInputCls =
+  'w-full rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200 dark:border-red-500/60 dark:bg-slate-900 dark:text-white dark:focus:ring-red-500/30';
 
+function InputField({ label, type = 'text', value, onChange, onBlur, placeholder, hint, error }) {
   return (
     <div>
       <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</label>
-      <input type={type} value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder} aria-invalid={!!error} className={error ? errorCls : baseCls} />
+      <input type={type} value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder} aria-invalid={!!error} className={error ? errorInputCls : baseInputCls} />
       {hint && <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">{hint}</p>}
       {error && (
         <p className="mt-1.5 flex items-center gap-1 text-xs font-medium text-red-600 dark:text-red-400">
@@ -84,7 +85,15 @@ function SectionCard({ title, description, children }) {
 }
 
 export default function NotificationSettingsPage() {
-  const [form, setForm] = useState({ telegramBotToken: '', telegramChatId: '', gtmId: '', whatsappNumber: '', siteUrl: '', jwtSecret: '' });
+  const [form, setForm] = useState({
+    telegramBotToken: '',
+    telegramChatId: '',
+    gtmId: '',
+    whatsappNumber: '',
+    siteUrl: '',
+    jwtSecret: '',
+    deliveryAreas: DEFAULT_DELIVERY_AREAS.map((a) => ({ ...a })),
+  });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -142,6 +151,41 @@ export default function NotificationSettingsPage() {
     setErrors((prev) => ({ ...prev, [name]: msg }));
   };
 
+  // Delivery areas are edited as raw strings while typing, so they are checked
+  // separately from the per-field `validators` above.
+  const validateAreas = (areas) => {
+    if (!areas.length) return 'Add at least one delivery area.';
+    const seen = new Set();
+    for (const area of areas) {
+      const name = (area.name || '').trim();
+      if (!name) return 'Area name is required.';
+      const key = name.toLowerCase();
+      if (seen.has(key)) return `Duplicate area name: ${name}.`;
+      seen.add(key);
+      const charge = Number(area.charge);
+      if (area.charge === '' || !Number.isFinite(charge) || charge < 0) {
+        return `Enter a valid charge (৳) for ${name}.`;
+      }
+    }
+    return '';
+  };
+
+  const updateArea = (index, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      deliveryAreas: prev.deliveryAreas.map((area, i) => (i === index ? { ...area, [field]: value } : area)),
+    }));
+    if (errors.deliveryAreas) setErrors((prev) => ({ ...prev, deliveryAreas: '' }));
+  };
+
+  const addArea = () => {
+    setForm((prev) => ({ ...prev, deliveryAreas: [...prev.deliveryAreas, { name: '', charge: '' }] }));
+  };
+
+  const removeArea = (index) => {
+    setForm((prev) => ({ ...prev, deliveryAreas: prev.deliveryAreas.filter((_, i) => i !== index) }));
+  };
+
   useEffect(() => {
     fetch('/api/admin/settings/site-config')
       .then((r) => r.json())
@@ -154,6 +198,10 @@ export default function NotificationSettingsPage() {
           whatsappNumber: data.whatsappNumber || '',
           siteUrl: data.siteUrl || '',
           jwtSecret: data.jwtSecret || '',
+          deliveryAreas:
+            Array.isArray(data.deliveryAreas) && data.deliveryAreas.length
+              ? data.deliveryAreas.map((a) => ({ name: String(a.name), charge: Number(a.charge) }))
+              : DEFAULT_DELIVERY_AREAS.map((a) => ({ ...a })),
         });
       })
       .catch(() => {})
@@ -172,6 +220,8 @@ export default function NotificationSettingsPage() {
       const msg = validate(form[name]);
       if (msg) newErrors[name] = msg;
     }
+    const areaMsg = validateAreas(form.deliveryAreas);
+    if (areaMsg) newErrors.deliveryAreas = areaMsg;
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       setToast({ type: 'error', message: 'Please fix the highlighted fields before saving.' });
@@ -185,7 +235,11 @@ export default function NotificationSettingsPage() {
         body: JSON.stringify(form),
       });
       if (res.ok) {
+        const data = await res.json().catch(() => ({}));
         setErrors({});
+        if (Array.isArray(data.deliveryAreas) && data.deliveryAreas.length) {
+          setForm((prev) => ({ ...prev, deliveryAreas: data.deliveryAreas }));
+        }
         setToast({ type: 'success', message: 'Settings saved successfully.' });
       } else {
         setToast({ type: 'error', message: 'Failed to save settings.' });
@@ -229,16 +283,13 @@ export default function NotificationSettingsPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Site Config</h1>
-            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Configure your site URL, JWT secret for admin login, Telegram order alerts, and Google Tag Manager.</p>
           </div>
         </div>
       </div>
 
       <div className="space-y-4 sm:space-y-6">
         <SectionCard
-          title="Site URL & JWT Secret"
-          description="Site URL feeds canonical links, Open Graph, sitemap and robots.txt. The JWT secret signs admin login sessions. Values left blank fall back to the server environment variables."
-        >
+          title="Site URL & JWT Secret"        >
           <InputField
             label="Site URL (NEXT_PUBLIC_SITE_URL)"
             type="url"
@@ -247,7 +298,6 @@ export default function NotificationSettingsPage() {
             onBlur={() => blurField('siteUrl')}
             error={errors.siteUrl}
             placeholder="https://radiantpicks.com"
-            hint="Your production base URL, without a trailing slash. Used for canonical, OG, structured data, sitemap and robots. Leave blank to use the NEXT_PUBLIC_SITE_URL env variable."
           />
           <InputField
             label="JWT Secret (Admin Login)"
@@ -257,13 +307,11 @@ export default function NotificationSettingsPage() {
             onBlur={() => blurField('jwtSecret')}
             error={errors.jwtSecret}
             placeholder="A long random string, e.g. openssl rand -base64 32"
-            hint="Signs the admin session cookie used at /admin/login. Changing it logs all admins out. Leave blank to use the JWT_SECRET env variable."
           />
         </SectionCard>
 
         <SectionCard
           title="Telegram Alerts"
-          description="Receive a push notification on Telegram every time a new order arrives. Values left blank fall back to the server environment variables."
         >
           <InputField
             label="Bot Token"
@@ -273,7 +321,6 @@ export default function NotificationSettingsPage() {
             onBlur={() => blurField('telegramBotToken')}
             error={errors.telegramBotToken}
             placeholder="123456789:AA..."
-            hint="Get this from @BotFather when you create your bot."
           />
           <InputField
             label="Chat ID"
@@ -282,7 +329,6 @@ export default function NotificationSettingsPage() {
             onBlur={() => blurField('telegramChatId')}
             error={errors.telegramChatId}
             placeholder="1234567890"
-            hint="Your Telegram user id, or the group/channel id. Message @userinfobot to find your id."
           />
           <button
             type="button"
@@ -309,7 +355,7 @@ export default function NotificationSettingsPage() {
           </button>
         </SectionCard>
 
-        <SectionCard title="Google Tag Manager" description="Your GTM container id. Used to load analytics and tracking scripts across the storefront.">
+        <SectionCard title="Google Tag Manager" >
           <InputField
             label="GTM Container ID"
             value={form.gtmId}
@@ -317,11 +363,10 @@ export default function NotificationSettingsPage() {
             onBlur={() => blurField('gtmId')}
             error={errors.gtmId}
             placeholder="GTM-XXXXXXX"
-            hint="Found in the GTM dashboard when you set up your container."
           />
         </SectionCard>
 
-        <SectionCard title="WhatsApp" description="Phone number customers will message to place orders via the 'Order on WhatsApp' button on product pages.">
+        <SectionCard title="WhatsApp" >
           <InputField
             label="WhatsApp Number"
             value={form.whatsappNumber}
@@ -329,8 +374,69 @@ export default function NotificationSettingsPage() {
             onBlur={() => blurField('whatsappNumber')}
             error={errors.whatsappNumber}
             placeholder="+8801XXXXXXXXX"
-            hint="Bangladeshi mobile number with or without +88 country code, e.g. 01945090085 or +8801945090085"
           />
+        </SectionCard>
+
+        <SectionCard title="Delivery Areas" >
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <span className="flex-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Area Name</span>
+              <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:w-28">Charge (৳)</span>
+              <span className="w-9 shrink-0" />
+            </div>
+            {form.deliveryAreas.map((area, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={area.name}
+                  onChange={(e) => updateArea(index, 'name', e.target.value)}
+                  placeholder="Inside Dhaka"
+                  className={`${baseInputCls} min-w-0 flex-1`}
+                />
+                <div className="relative w-24 shrink-0 sm:w-28">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 dark:text-slate-500">৳</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={area.charge}
+                    onChange={(e) => updateArea(index, 'charge', e.target.value)}
+                    placeholder="0"
+                    className={`${baseInputCls} pl-7 pr-3`}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeArea(index)}
+                  disabled={form.deliveryAreas.length === 1}
+                  title="Remove area"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-red-400 transition hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+            {errors.deliveryAreas && (
+              <p className="flex items-center gap-1 px-1 text-xs font-medium text-red-600 dark:text-red-400">
+                <svg className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {errors.deliveryAreas}
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={addArea}
+            className="inline-flex items-center gap-2 rounded-xl border border-[#2f0f6b]/20 bg-[#2f0f6b]/5 px-4 py-2.5 text-sm font-semibold text-[#2f0f6b] transition hover:bg-[#2f0f6b]/10 disabled:opacity-50 dark:border-[#a78bfa]/30 dark:bg-[#a78bfa]/10 dark:text-[#a78bfa] dark:hover:bg-[#a78bfa]/20"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Area
+          </button>
         </SectionCard>
 
         <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo, Fragment } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import Link from 'next/link';
-import { getOrders, updateOrderStatus } from '../../../src/actions/orders';
+import { getOrdersPage, getCustomerOrderStats, updateOrderStatus } from '../../../src/actions/orders';
 
 const orderStatuses = ['pending', 'processing', 'completed', 'cancelled', 'return', 'incomplete'];
 
@@ -23,6 +23,65 @@ const orderStatusDotColors = {
   return: 'bg-purple-500',
   incomplete: 'bg-slate-400',
 };
+
+/*
+ * Orders list filters. The list only ever shows the last 31 Bangladesh days —
+ * `getOrdersPage` clamps every preset to that window, and custom dates can't
+ * reach outside it either.
+ */
+const PAGE_SIZE = 20; // mirrors ORDERS_PAGE_SIZE in src/actions/orders.js
+const BD_OFFSET_MS = 6 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const RANGE_PRESETS = [
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: 'last7', label: 'Last 7 days' },
+  { key: 'custom', label: 'Custom date' },
+];
+
+const CHIP_BASE = 'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition';
+const CHIP_ON =
+  'border-[#2f0f6b] bg-[#2f0f6b] text-white shadow-sm dark:border-[#a78bfa] dark:bg-[#a78bfa] dark:text-slate-900';
+const CHIP_OFF =
+  'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700';
+const DATE_INPUT =
+  'mt-1 block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:[color-scheme:dark] dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]';
+
+/** `YYYY-MM-DD` of the Bangladesh calendar day containing `date`. */
+function bdDateKey(date = new Date()) {
+  return new Date(new Date(date).getTime() + BD_OFFSET_MS).toISOString().slice(0, 10);
+}
+function bdKeyDaysAgo(days) {
+  return bdDateKey(new Date(Date.now() - days * DAY_MS));
+}
+function formatBdDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-GB', {
+    timeZone: 'Asia/Dhaka',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+/** Compact page list: first, last and a window around the current page. */
+function pageWindow(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const wanted = [...new Set([1, total, current - 1, current, current + 1])]
+    .filter((p) => p >= 1 && p <= total)
+    .sort((a, b) => a - b);
+  const out = [];
+  let previous = 0;
+  for (const p of wanted) {
+    if (previous && p - previous > 1) out.push('gap');
+    out.push(p);
+    previous = p;
+  }
+  return out;
+}
 
 function ItemsSection({ items }) {
   if (!items?.length) return null;
@@ -191,15 +250,16 @@ function ExpandedDetails({ order, onStatusUpdate }) {
   );
 }
 
-function CustomerStatsModal({ stats, onClose }) {
-  if (!stats) return null;
+function CustomerStatsModal({ stats, loading = false, onClose }) {
+  if (!stats && !loading) return null;
 
+  const view = stats || { name: '', mobile: '', total: 0, completed: 0, returned: 0, others: 0 };
   const segs = [
-    { label: 'Completed', value: stats.completed, dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500' },
-    { label: 'Returned', value: stats.returned, dot: 'bg-purple-500', text: 'text-purple-600 dark:text-purple-400', bar: 'bg-purple-500' },
-    { label: 'Others', value: stats.others, dot: 'bg-slate-400', text: 'text-slate-400 dark:text-slate-500', bar: 'bg-slate-300 dark:bg-slate-600' },
+    { label: 'Completed', value: view.completed, dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500' },
+    { label: 'Returned', value: view.returned, dot: 'bg-purple-500', text: 'text-purple-600 dark:text-purple-400', bar: 'bg-purple-500' },
+    { label: 'Others', value: view.others, dot: 'bg-slate-400', text: 'text-slate-400 dark:text-slate-500', bar: 'bg-slate-300 dark:bg-slate-600' },
   ];
-  const pct = stats.total > 0 ? (v) => Math.max(0, (v / stats.total) * 100) : () => 0;
+  const pct = view.total > 0 ? (v) => Math.max(0, (v / view.total) * 100) : () => 0;
 
   return (
     <div
@@ -219,7 +279,7 @@ function CustomerStatsModal({ stats, onClose }) {
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Customer Order Stats</h3>
-              <p className="truncate text-xs text-slate-500 dark:text-slate-400">{stats.name} {stats.mobile ? `· ${stats.mobile}` : ''}</p>
+              <p className="truncate text-xs text-slate-500 dark:text-slate-400">{view.name} {view.mobile ? `· ${view.mobile}` : ''}</p>
             </div>
           </div>
           <button
@@ -234,29 +294,38 @@ function CustomerStatsModal({ stats, onClose }) {
         </div>
 
         <div className="space-y-5 p-5">
-          <div className="text-center">
-            <p className="text-4xl font-bold text-slate-900 dark:text-white">{stats.total}</p>
-            <p className="mt-0.5 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Total Orders Placed</p>
-          </div>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-10">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[#2f0f6b] dark:border-slate-700 dark:border-t-[#a78bfa]" />
+              <p className="mt-3 text-xs text-slate-400 dark:text-slate-500">Loading customer stats…</p>
+            </div>
+          ) : (
+            <>
+              <div className="text-center">
+                <p className="text-4xl font-bold text-slate-900 dark:text-white">{view.total}</p>
+                <p className="mt-0.5 text-xs font-medium uppercase tracking-widest text-slate-500 dark:text-slate-400">Total Orders Placed</p>
+              </div>
 
-          <div>
-            <div className="flex h-10 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
-              {segs.map((s) => (
-                <div key={s.label} className={`${s.bar} transition-all duration-500`} style={{ width: `${pct(s.value)}%` }} />
-              ))}
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {segs.map((s) => (
-                <div key={s.label} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-700/40">
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
-                  <div className="min-w-0">
-                    <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">{s.label}</p>
-                    <p className={`text-sm font-bold ${s.text}`}>{s.value}</p>
-                  </div>
+              <div>
+                <div className="flex h-10 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                  {segs.map((s) => (
+                    <div key={s.label} className={`${s.bar} transition-all duration-500`} style={{ width: `${pct(s.value)}%` }} />
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {segs.map((s) => (
+                    <div key={s.label} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-700/40">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
+                      <div className="min-w-0">
+                        <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">{s.label}</p>
+                        <p className={`text-sm font-bold ${s.text}`}>{s.value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -265,9 +334,32 @@ function CustomerStatsModal({ stats, onClose }) {
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPage] = useState(1);
+  const [range, setRange] = useState({ from: null, to: null });
+
+  const [preset, setPreset] = useState('today');
+  const [customFrom, setCustomFrom] = useState(() => bdKeyDaysAgo(6));
+  const [customTo, setCustomTo] = useState(() => bdDateKey());
+  const [appliedRange, setAppliedRange] = useState({ from: null, to: null });
+
   const [filterOrderStatus, setFilterOrderStatus] = useState('all');
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const [expanded, setExpanded] = useState(null);
+  const [statsOrder, setStatsOrder] = useState(null);
+  const [customerStats, setCustomerStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  const minDate = bdKeyDaysAgo(30);
+  const maxDate = bdDateKey();
+  const customInvalid = Boolean(preset === 'custom' && customFrom && customTo && customFrom > customTo);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -275,14 +367,84 @@ export default function AdminOrdersPage() {
     const s = url.searchParams.get('status');
     if (s && orderStatuses.includes(s)) {
       setFilterOrderStatus(s);
+      setPage(1);
     }
   }, []);
-  const [expanded, setExpanded] = useState(null);
-  const [statsOrder, setStatsOrder] = useState(null);
 
+  // Debounce the search box so every keystroke doesn't hit the database.
   useEffect(() => {
-    getOrders().then((data) => { setOrders(data); setLoading(false); });
-  }, []);
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Paged, filtered query — re-runs on any filter change.
+  useEffect(() => {
+    let alive = true;
+    setRefreshing(true);
+    getOrdersPage({
+      preset,
+      from: preset === 'custom' ? appliedRange.from : undefined,
+      to: preset === 'custom' ? appliedRange.to : undefined,
+      status: filterOrderStatus,
+      search: debouncedSearch,
+      page,
+    })
+      .then((res) => {
+        if (!alive) return;
+        setOrders(res.orders);
+        setTotal(res.total);
+        setTotalPages(res.totalPages);
+        setRange({ from: res.from, to: res.to });
+        // The server clamps out-of-range pages (e.g. after a filter shrinks the list).
+        if (res.page !== page) setPage(res.page);
+        setLoading(false);
+        setRefreshing(false);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setLoading(false);
+        setRefreshing(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [preset, appliedRange.from, appliedRange.to, filterOrderStatus, debouncedSearch, page, refreshKey]);
+
+  // Customer stats are all-time counts, so they need their own query.
+  useEffect(() => {
+    if (!statsOrder) return;
+    const phone = statsOrder.details?.phoneNumber;
+    if (!phone) {
+      setCustomerStats({
+        name: statsOrder.details?.customerName || statsOrder.user?.name || '—',
+        mobile: '',
+        total: 0,
+        completed: 0,
+        returned: 0,
+        others: 0,
+      });
+      setStatsLoading(false);
+      return;
+    }
+    let alive = true;
+    setStatsLoading(true);
+    getCustomerOrderStats(phone)
+      .then((data) => {
+        if (!alive) return;
+        setCustomerStats({
+          ...data,
+          name: data.name || statsOrder.details?.customerName || statsOrder.user?.name || '—',
+          mobile: phone,
+        });
+        setStatsLoading(false);
+      })
+      .catch(() => {
+        if (alive) setStatsLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [statsOrder]);
 
   useEffect(() => {
     if (!statsOrder) return;
@@ -291,221 +453,420 @@ export default function AdminOrdersPage() {
     return () => window.removeEventListener('keydown', handler);
   }, [statsOrder]);
 
-  const filtered = useMemo(() => {
-    let list = orders;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter((o) =>
-        o.orderNo.toLowerCase().includes(q) ||
-        o.details?.phoneNumber?.toLowerCase().includes(q)
-      );
-    }
-    if (filterOrderStatus !== 'all') list = list.filter((o) => o.orderStatus === filterOrderStatus);
-    return list;
-  }, [orders, search, filterOrderStatus]);
+  const selectPreset = (key) => {
+    setPreset(key);
+    setPage(1);
+    // Selecting "Custom" applies the drafted dates right away; the Apply
+    // button re-applies after the inputs change.
+    if (key === 'custom') setAppliedRange({ from: customFrom, to: customTo });
+  };
+
+  const applyCustomRange = () => {
+    if (customInvalid) return;
+    setAppliedRange({ from: customFrom, to: customTo });
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setPreset('today');
+    setFilterOrderStatus('all');
+    setSearch('');
+    setPage(1);
+  };
+
+  const openStats = (order) => {
+    setStatsOrder(order);
+    setCustomerStats({
+      name: order.details?.customerName || order.user?.name || '—',
+      mobile: order.details?.phoneNumber || '',
+      total: 0,
+      completed: 0,
+      returned: 0,
+      others: 0,
+    });
+    setStatsLoading(true);
+  };
 
   const handleStatusUpdate = async (id, field, value) => {
     try {
       await updateOrderStatus(id, { [field]: value });
-      getOrders().then(setOrders);
+      setRefreshKey((k) => k + 1);
     } catch {}
-  };
-
-  const getCustomerStats = (order) => {
-    const mobile = order.details?.phoneNumber;
-    if (!mobile) return null;
-    const customerOrders = orders.filter((o) => o.details?.phoneNumber === mobile);
-    const total = customerOrders.length;
-    const completed = customerOrders.filter((o) => o.orderStatus === 'completed').length;
-    const returned = customerOrders.filter((o) => o.orderStatus === 'return').length;
-    return {
-      name: order.details?.customerName || order.user?.name || '—',
-      mobile,
-      total,
-      completed,
-      returned,
-      others: total - completed - returned,
-    };
   };
 
   if (loading) return <div className="p-8 text-slate-500 dark:text-slate-400">Loading...</div>;
 
+  const hasFilters = filterOrderStatus !== 'all' || search.trim() !== '';
+  const emptyText =
+    search.trim() !== '' || filterOrderStatus !== 'all'
+      ? 'No orders match your filters.'
+      : 'No orders in this period.';
+  const rangeLabel =
+    preset === 'today'
+      ? 'today'
+      : preset === 'yesterday'
+        ? 'yesterday'
+        : preset === 'last7'
+          ? 'last 7 days'
+          : formatBdDate(range.from) === formatBdDate(range.to)
+            ? formatBdDate(range.from)
+            : `${formatBdDate(range.from)} – ${formatBdDate(range.to)}`;
+
   return (
-    <section className="space-y-6">
+    <section className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Orders</h1>
-        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{orders.length} {orders.length === 1 ? 'order' : 'orders'}</p>
+        <p className="mt-0.5 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+          <span>
+            {total} {total === 1 ? 'order' : 'orders'} · {rangeLabel}
+          </span>
+          {refreshing && (
+            <span
+              aria-label="Refreshing"
+              className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#2f0f6b] dark:border-slate-700 dark:border-t-[#a78bfa]"
+            />
+          )}
+        </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[160px] sm:min-w-[200px] max-w-xs">
-          <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input type="text" placeholder="Search by order number or phone…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm placeholder-slate-400 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500 dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]" />
-        </div>
-        <select value={filterOrderStatus} onChange={(e) => setFilterOrderStatus(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]">
-          <option value="all">All Status</option>
-          {orderStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        {(filterOrderStatus !== 'all' || search) && (
-          <button onClick={() => { setFilterOrderStatus('all'); setSearch(''); }} className="text-sm text-slate-500 hover:text-slate-700 transition dark:text-slate-400 dark:hover:text-slate-300">Clear</button>
-        )}
-      </div>
-
-      {/* Mobile: card list */}
-      <div className="space-y-3 md:hidden">
-        {filtered.map((order) => (
-          <div key={order.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-            <div
-              onClick={() => setExpanded(expanded === order.id ? null : order.id)}
-              className="flex items-center gap-3 px-4 py-3.5 cursor-pointer active:bg-slate-50 transition-colors dark:active:bg-slate-700/30"
+      {/* ── Filters ── */}
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        {/* One row on desktop: range chips · search · status · clear */}
+        <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
+          {RANGE_PRESETS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => selectPreset(p.key)}
+              aria-pressed={preset === p.key}
+              className={`${CHIP_BASE} shrink-0 whitespace-nowrap ${preset === p.key ? CHIP_ON : CHIP_OFF}`}
             >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <Link href={`/admin/orders/${order.orderNo}`} className="text-sm font-semibold text-[#2f0f6b] hover:underline dark:text-[#a78bfa]" onClick={(e) => e.stopPropagation()}>
-                    {order.orderNo}
-                  </Link>
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${orderStatusColors[order.orderStatus] || 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'}`}>
-                    {order.orderStatus}
-                  </span>
-                </div>
-                <p className="text-xs font-medium text-slate-900 dark:text-white">{order.details?.customerName || order.user?.name || '—'}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">{order.details?.phoneNumber || ''}</p>
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <span className="font-medium text-slate-900 shrink-0 dark:text-white">৳{Number(order.total).toLocaleString()}</span>
-                </div>
-                <p className="text-xs text-slate-400 mt-0.5 dark:text-slate-500">
-                  {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', year: '2-digit' })}{' '}
-                  {new Date(order.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
-                </p>
+              {p.label}
+            </button>
+          ))}
+
+          <div className="relative ml-auto w-full flex-1 sm:w-auto sm:min-w-[170px] sm:max-w-[280px]">
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by order number or phone…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm placeholder-slate-400 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500 dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]"
+            />
+          </div>
+
+          <select
+            value={filterOrderStatus}
+            onChange={(e) => {
+              setFilterOrderStatus(e.target.value);
+              setPage(1);
+            }}
+            className="w-full shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]"
+          >
+            <option value="all">All Status</option>
+            {orderStatuses.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="shrink-0 whitespace-nowrap text-xs font-medium text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {preset === 'custom' && (
+          <div className="mt-3 rounded-lg border border-dashed border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-900/30">
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label
+                  htmlFor="orders-date-from"
+                  className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+                >
+                  From
+                </label>
+                <input
+                  id="orders-date-from"
+                  type="date"
+                  value={customFrom}
+                  min={minDate}
+                  max={maxDate}
+                  onChange={(e) => setCustomFrom(e.target.value)}
+                  className={DATE_INPUT}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="orders-date-to"
+                  className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400"
+                >
+                  To
+                </label>
+                <input
+                  id="orders-date-to"
+                  type="date"
+                  value={customTo}
+                  min={minDate}
+                  max={maxDate}
+                  onChange={(e) => setCustomTo(e.target.value)}
+                  className={DATE_INPUT}
+                />
               </div>
               <button
-                onClick={(e) => { e.stopPropagation(); setStatsOrder(order); }}
-                className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 dark:text-slate-500 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
-                title="Customer order stats"
+                type="button"
+                onClick={applyCustomRange}
+                disabled={customInvalid || !customFrom || !customTo}
+                className="rounded-lg bg-[#2f0f6b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#2f0f6b]/90 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-[#a78bfa] dark:text-slate-900 dark:hover:bg-[#a78bfa]/90"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="4" y1="20" x2="4" y2="10" />
-                  <line x1="10" y1="20" x2="10" y2="4" />
-                  <line x1="16" y1="20" x2="16" y2="12" />
-                  <line x1="20" y1="20" x2="20" y2="16" />
-                </svg>
+                Apply
               </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setExpanded(expanded === order.id ? null : order.id); }}
-                className={`shrink-0 rounded-lg p-2 transition ${
-                  expanded === order.id ? 'bg-[#2f0f6b]/10 text-[#2f0f6b] dark:bg-[#a78bfa]/15 dark:text-[#a78bfa]' : 'text-slate-400 dark:text-slate-500'
+              <p
+                className={`max-w-xs text-xs ${
+                  customInvalid ? 'font-medium text-red-500' : 'text-slate-400 dark:text-slate-500'
                 }`}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {expanded === order.id ? (
-                    <polyline points="18 15 12 9 6 15" />
-                  ) : (
-                    <polyline points="6 9 12 15 18 9" />
-                  )}
-                </svg>
-              </button>
+                {customInvalid
+                  ? '“From” must be on or before “To”.'
+                  : `Only the last 31 days are available (${formatBdDate(minDate)} – ${formatBdDate(maxDate)}).`}
+              </p>
             </div>
-            {expanded === order.id && (
-              <ExpandedDetails order={order} onStatusUpdate={handleStatusUpdate} />
-            )}
-          </div>
-        ))}
-        {filtered.length === 0 && (
-          <div className="rounded-xl border border-slate-200 bg-white py-12 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
-            {search || filterOrderStatus !== 'all' ? 'No orders match your filters.' : 'No orders yet.'}
           </div>
         )}
       </div>
 
-      {/* Desktop: table */}
-      <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50">
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Order</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Customer</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Date</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IP Address</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {filtered.map((order) => (
-              <Fragment key={order.id}>
-                <tr className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30">
-                  <td className="px-4 py-3">
-                    <Link href={`/admin/orders/${order.orderNo}`} className="font-medium text-[#2f0f6b] hover:underline dark:text-[#a78bfa]">{order.orderNo}</Link>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="text-sm font-medium text-slate-900 dark:text-white">{order.details?.customerName || order.user?.name || '—'}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{order.details?.phoneNumber || ''}</p>
-                  </td>
-                  <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">৳{Number(order.total).toLocaleString()}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${orderStatusColors[order.orderStatus] || 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'}`}>{order.orderStatus}</span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
+      <div className={refreshing ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+        {/* Mobile: card list */}
+        <div className="space-y-3 md:hidden">
+          {orders.map((order) => (
+            <div key={order.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <div
+                onClick={() => setExpanded(expanded === order.id ? null : order.id)}
+                className="flex items-center gap-3 px-4 py-3.5 cursor-pointer active:bg-slate-50 transition-colors dark:active:bg-slate-700/30"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <Link href={`/admin/orders/${order.orderNo}`} className="text-sm font-semibold text-[#2f0f6b] hover:underline dark:text-[#a78bfa]" onClick={(e) => e.stopPropagation()}>
+                      {order.orderNo}
+                    </Link>
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${orderStatusColors[order.orderStatus] || 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'}`}>
+                      {order.orderStatus}
+                    </span>
+                  </div>
+                  <p className="text-xs font-medium text-slate-900 dark:text-white">{order.details?.customerName || order.user?.name || '—'}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{order.details?.phoneNumber || ''}</p>
+                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="font-medium text-slate-900 shrink-0 dark:text-white">৳{Number(order.total).toLocaleString()}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5 dark:text-slate-500">
                     {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', year: '2-digit' })}{' '}
                     {new Date(order.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
-                  </td>
-                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{order.details?.ipAddress || '—'}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="inline-flex items-center gap-1">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setStatsOrder(order); }}
-                        className="rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 dark:text-slate-500 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
-                        title="Customer order stats"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="4" y1="20" x2="4" y2="10" />
-                          <line x1="10" y1="20" x2="10" y2="4" />
-                          <line x1="16" y1="20" x2="16" y2="12" />
-                          <line x1="20" y1="20" x2="20" y2="16" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => setExpanded(expanded === order.id ? null : order.id)}
-                        className={`rounded-lg p-2 transition ${
-                          expanded === order.id
-                            ? 'bg-[#2f0f6b]/10 text-[#2f0f6b] dark:bg-[#a78bfa]/15 dark:text-[#a78bfa]'
-                            : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-300'
-                        }`}
-                        title={expanded === order.id ? 'Collapse' : 'Expand details'}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          {expanded === order.id ? (
-                            <polyline points="18 15 12 9 6 15" />
-                          ) : (
-                            <polyline points="6 9 12 15 18 9" />
-                          )}
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                {expanded === order.id && (
-                  <tr>
-                    <td colSpan={7} className="px-0 py-0">
-                      <ExpandedDetails order={order} onStatusUpdate={handleStatusUpdate} />
+                  </p>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); openStats(order); }}
+                  className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 dark:text-slate-500 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+                  title="Customer order stats"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="4" y1="20" x2="4" y2="10" />
+                    <line x1="10" y1="20" x2="10" y2="4" />
+                    <line x1="16" y1="20" x2="16" y2="12" />
+                    <line x1="20" y1="20" x2="20" y2="16" />
+                  </svg>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setExpanded(expanded === order.id ? null : order.id); }}
+                  className={`shrink-0 rounded-lg p-2 transition ${
+                    expanded === order.id ? 'bg-[#2f0f6b]/10 text-[#2f0f6b] dark:bg-[#a78bfa]/15 dark:text-[#a78bfa]' : 'text-slate-400 dark:text-slate-500'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {expanded === order.id ? (
+                      <polyline points="18 15 12 9 6 15" />
+                    ) : (
+                      <polyline points="6 9 12 15 18 9" />
+                    )}
+                  </svg>
+                </button>
+              </div>
+              {expanded === order.id && (
+                <ExpandedDetails order={order} onStatusUpdate={handleStatusUpdate} />
+              )}
+            </div>
+          ))}
+          {orders.length === 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white py-12 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
+              {emptyText}
+            </div>
+          )}
+        </div>
+
+        {/* Desktop: table */}
+        <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50">
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Order</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Customer</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Date</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">IP Address</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+              {orders.map((order) => (
+                <Fragment key={order.id}>
+                  <tr className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30">
+                    <td className="px-4 py-3">
+                      <Link href={`/admin/orders/${order.orderNo}`} className="font-medium text-[#2f0f6b] hover:underline dark:text-[#a78bfa]">{order.orderNo}</Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-slate-900 dark:text-white">{order.details?.customerName || order.user?.name || '—'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{order.details?.phoneNumber || ''}</p>
+                    </td>
+                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">৳{Number(order.total).toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${orderStatusColors[order.orderStatus] || 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'}`}>{order.orderStatus}</span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
+                      {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', year: '2-digit' })}{' '}
+                      {new Date(order.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{order.details?.ipAddress || '—'}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openStats(order); }}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 dark:text-slate-500 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+                          title="Customer order stats"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="4" y1="20" x2="4" y2="10" />
+                            <line x1="10" y1="20" x2="10" y2="4" />
+                            <line x1="16" y1="20" x2="16" y2="12" />
+                            <line x1="20" y1="20" x2="20" y2="16" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => setExpanded(expanded === order.id ? null : order.id)}
+                          className={`rounded-lg p-2 transition ${
+                            expanded === order.id
+                              ? 'bg-[#2f0f6b]/10 text-[#2f0f6b] dark:bg-[#a78bfa]/15 dark:text-[#a78bfa]'
+                              : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-300'
+                          }`}
+                          title={expanded === order.id ? 'Collapse' : 'Expand details'}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            {expanded === order.id ? (
+                              <polyline points="18 15 12 9 6 15" />
+                            ) : (
+                              <polyline points="6 9 12 15 18 9" />
+                            )}
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
-            {filtered.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400 dark:text-slate-500">{search || filterOrderStatus !== 'all' ? 'No orders match your filters.' : 'No orders yet.'}</td></tr>
-            ) : null}
-          </tbody>
-        </table>
+                  {expanded === order.id && (
+                    <tr>
+                      <td colSpan={7} className="px-0 py-0">
+                        <ExpandedDetails order={order} onStatusUpdate={handleStatusUpdate} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+              {orders.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400 dark:text-slate-500">{emptyText}</td></tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </div>
 
+      {/* ── Pagination ── */}
+      <Pager page={page} totalPages={totalPages} total={total} pageSize={PAGE_SIZE} onPage={setPage} />
+
       {statsOrder && (
-        <CustomerStatsModal stats={getCustomerStats(statsOrder)} onClose={() => setStatsOrder(null)} />
+        <CustomerStatsModal
+          stats={customerStats}
+          loading={statsLoading}
+          onClose={() => setStatsOrder(null)}
+        />
       )}
     </section>
+  );
+}
+
+function Pager({ page, totalPages, total, pageSize, onPage }) {
+  if (!total) return null;
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  const pages = pageWindow(page, totalPages);
+
+  return (
+    <div className="flex flex-col items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row dark:border-slate-700 dark:bg-slate-800">
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Showing{' '}
+        <span className="font-semibold text-slate-700 dark:text-slate-200">
+          {start}–{end}
+        </span>{' '}
+        of <span className="font-semibold text-slate-700 dark:text-slate-200">{total}</span> orders
+      </p>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => onPage(page - 1)}
+          disabled={page <= 1}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
+        >
+          Prev
+        </button>
+        {pages.map((p, i) =>
+          p === 'gap' ? (
+            <span key={`gap-${i}`} className="px-1 text-xs text-slate-400 dark:text-slate-500">
+              …
+            </span>
+          ) : (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onPage(p)}
+              aria-current={p === page ? 'page' : undefined}
+              className={`h-7 min-w-[1.75rem] rounded-lg px-2 text-xs font-semibold transition ${
+                p === page
+                  ? 'bg-[#2f0f6b] text-white dark:bg-[#a78bfa] dark:text-slate-900'
+                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
+              }`}
+            >
+              {p}
+            </button>
+          )
+        )}
+        <button
+          type="button"
+          onClick={() => onPage(page + 1)}
+          disabled={page >= totalPages}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700"
+        >
+          Next
+        </button>
+      </div>
+    </div>
   );
 }

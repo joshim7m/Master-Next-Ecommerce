@@ -287,7 +287,6 @@ export default function SiteSettingsPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">Site Setting</h1>
-            <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Manage your site branding and contact information.</p>
           </div>
         </div>
       </div>
@@ -318,7 +317,7 @@ export default function SiteSettingsPage() {
           />
         </SectionCard>
 
-        <SectionCard title="Contact" description="How customers can reach you.">
+        <SectionCard title="Contact">
           <div className="grid gap-4 sm:grid-cols-5 sm:gap-5">
             <div className="sm:col-span-2">
               <InputField
@@ -347,7 +346,7 @@ export default function SiteSettingsPage() {
           />
         </SectionCard>
 
-        <SectionCard title="About Company" description="Company description shown on the About page and for SEO.">
+        <SectionCard title="About Company" >
           <InputField
             label="About Company (English)"
             value={form.aboutCompany}
@@ -364,7 +363,7 @@ export default function SiteSettingsPage() {
           />
         </SectionCard>
 
-        <SectionCard title="SEO & Sharing" description="Global defaults used across the storefront for titles, descriptions, keywords, and social sharing. Titles use your site name; leave a field blank and its tag is hidden (nothing invented is shown).">
+        <SectionCard title="SEO & Sharing">
           <InputField
             label="Meta Title Suffix"
             value={form.metaTitle}
@@ -396,7 +395,7 @@ export default function SiteSettingsPage() {
           />
         </SectionCard>
 
-        <SectionCard title="Announcement Bar" description="The message shown at the top of every page.">
+        <SectionCard title="Announcement Bar" >
           <InputField
             label="Announcement Text"
             value={form.announcementText}
@@ -405,7 +404,7 @@ export default function SiteSettingsPage() {
           />
         </SectionCard>
 
-        <SectionCard title="Footer" description="Copyright text displayed in your site footer.">
+        <SectionCard title="Footer" >
           <InputField
             label="Copyright Text"
             value={form.copyrightText}
