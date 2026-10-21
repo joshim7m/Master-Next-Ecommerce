@@ -5,6 +5,7 @@ import FilterSidebar from '../../(home)/_partials/FilterSidebar';
 import ProductGrid from '../../(home)/_partials/ProductGrid';
 import { getSiteSettings } from '../../../../src/lib/getSiteSettings';
 import { siteNameOf, siteUrlOf, seoDescription } from '../../../../src/lib/siteSettings';
+import { CATEGORY_ORDER_BY } from '../../../../src/lib/categoryOrder';
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -57,7 +58,7 @@ export default async function CategoryProductsPage({ params, searchParams }) {
     }),
     prisma.category.findMany({
       include: { _count: { select: { products: true } }, children: { include: { _count: { select: { products: true } } } } },
-      orderBy: { name: 'asc' },
+      orderBy: CATEGORY_ORDER_BY,
     }),
     prisma.product.aggregate({
       where: { status: 'publish', categories: { some: { slug } } },

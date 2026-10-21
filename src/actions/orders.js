@@ -535,6 +535,7 @@ export async function deleteOrderItem(itemId) {
 
 export async function updateOrderDetails(orderId, data) {
   const discountProvided = data.discount !== undefined;
+  const chargeProvided = data.deliveryCharge !== undefined;
   let discount;
 
   if (discountProvided) {
@@ -542,6 +543,15 @@ export async function updateOrderDetails(orderId, data) {
     if (!Number.isFinite(discount) || discount < 0) {
       throw new Error('Discount must be a positive amount');
     }
+  }
+  if (chargeProvided) {
+    const charge = Number(data.deliveryCharge);
+    if (!Number.isFinite(charge) || charge < 0) {
+      throw new Error('Delivery charge must be a positive amount');
+    }
+  }
+
+  if (discountProvided || chargeProvided) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: { items: true, details: true },
@@ -550,10 +560,18 @@ export async function updateOrderDetails(orderId, data) {
     const subtotal = order.items.reduce(
       (s, i) => s + Number(i.purchasePrice) * i.quantity, 0
     );
-    const deliveryCharge = Number(order.details?.deliveryCharge || 0);
+    // The cap is measured against the *new* delivery charge, so a discount
+    // entered earlier cannot outlive a delivery charge that was lowered.
+    const deliveryCharge = chargeProvided
+      ? Number(data.deliveryCharge)
+      : Number(order.details?.deliveryCharge || 0);
     const maxDiscount = subtotal + deliveryCharge;
-    if (discount > maxDiscount) discount = maxDiscount;
-    data = { ...data, discount };
+    const effective = discountProvided
+      ? discount
+      : Number(order.details?.discount || 0);
+    const capped = Math.min(effective, maxDiscount);
+    if (discountProvided) discount = capped;
+    if (capped !== effective) data = { ...data, discount: capped };
   }
 
   const details = await prisma.orderDetails.update({
@@ -561,7 +579,7 @@ export async function updateOrderDetails(orderId, data) {
     data,
   });
 
-  if (data.deliveryCharge !== undefined || discountProvided) {
+  if (chargeProvided || discountProvided) {
     await recalculateOrderTotal(orderId);
   }
   revalidatePath('/admin/orders');

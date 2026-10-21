@@ -1,4 +1,5 @@
 import prisma from '../../../src/lib/prisma';
+import { CATEGORY_ORDER_BY } from '../../../src/lib/categoryOrder';
 import FilterSidebar from '../(home)/_partials/FilterSidebar';
 import ProductGrid from '../(home)/_partials/ProductGrid';
 
@@ -14,7 +15,7 @@ export default async function ProductsPage({ searchParams }) {
   const [categories, priceCeiling] = await Promise.all([
     prisma.category.findMany({
       include: { _count: { select: { products: true } }, children: { include: { _count: { select: { products: true } } } } },
-      orderBy: { name: 'asc' },
+      orderBy: CATEGORY_ORDER_BY,
     }),
     // Slider ceiling across the whole catalogue, ignoring the maxPrice filter for
     // the same reason as the category page: applying a filter must not shrink the

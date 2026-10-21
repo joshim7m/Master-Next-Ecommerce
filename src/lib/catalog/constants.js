@@ -40,7 +40,7 @@ export const PRODUCT_COLUMNS = [
   'Image Alt Texts',
 ];
 
-export const CATEGORY_COLUMNS = ['Name', 'Slug', 'Parent Slug', 'Description', 'Image'];
+export const CATEGORY_COLUMNS = ['Name', 'Slug', 'Parent Slug', 'Description', 'Image', 'Order'];
 
 export const OPTION_COLUMNS = ['Product Slug', 'Name', 'Position'];
 

@@ -1,35 +1,27 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 
 /**
- * Print / download controls for the invoice page.
+ * Toolbar for the invoice page.
  *
- * Both output paths are kept deliberately. Print produces vector, selectable
- * text at the browser's own quality; Download rasterises the same DOM, which is
- * the only way to get a one-click file with correct Bengali (see
+ * Download PDF is the only output path. It rasterises the sheet, which is the
+ * only way to get a one-click file with correct Bengali (see
  * src/lib/invoicePdf.js for why a PDF library cannot shape the text itself).
  *
- * Isolated in its own component so the Suspense boundary that useSearchParams
- * requires wraps only the toolbar — the invoice sheet itself must never be
- * inside a `fallback={null}` boundary, or it would be absent from the
- * server-rendered HTML.
+ * The browser's own print dialog and the `?autoprint=1` shortcut were removed
+ * along with the Print button — the page is opened to be downloaded, and a
+ * print dialog that pops up on arrival is more surprising than useful.
+ *
+ * Isolated in its own component so the toolbar stays a client island: the
+ * invoice sheet itself must never be inside a `fallback={null}` boundary, or
+ * it would be absent from the server-rendered HTML the PDF path captures.
  */
 export default function InvoiceActions({ orderNo }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState('');
-
-  // Arrive from the order page's button → open the print dialog immediately.
-  // A manual visit of this URL leaves the dialog alone.
-  useEffect(() => {
-    if (searchParams.get('autoprint') !== '1') return;
-    // A beat so fonts and layout settle before the dialog captures them.
-    const t = setTimeout(() => window.print(), 400);
-    return () => clearTimeout(t);
-  }, [searchParams]);
 
   const handleDownload = useCallback(async () => {
     setGenerating(true);
@@ -68,15 +60,6 @@ export default function InvoiceActions({ orderNo }) {
           {error ? (
             <span className="text-xs font-medium text-red-600 dark:text-red-400">{error}</span>
           ) : null}
-          <button
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" />
-            </svg>
-            Print
-          </button>
           <button
             onClick={handleDownload}
             disabled={generating}

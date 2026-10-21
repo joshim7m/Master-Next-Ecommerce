@@ -1,6 +1,6 @@
 # Data Model
 
-This document mirrors the actual Prisma schema (`prisma/schema.prisma`). The database is PostgreSQL and the schema contains **21 models**. Status fields are plain `String`s (no Prisma enums). Schema changes are managed through 3 migrations under `prisma/migrations/` (a consolidated baseline plus `add_order_discount` and `add_page_model`).
+This document mirrors the actual Prisma schema (`prisma/schema.prisma`). The database is PostgreSQL and the schema contains **21 models**. Status fields are plain `String`s (no Prisma enums). Schema changes are managed through migrations under `prisma/migrations/` (a consolidated baseline plus `add_order_discount`, `add_page_model`, `add_courier_booking`, `add_courier_service`, `add_delivery_areas_order_note` and `add_category_sort_order`).
 
 ## Catalog
 
@@ -8,8 +8,9 @@ This document mirrors the actual Prisma schema (`prisma/schema.prisma`). The dat
 Hierarchical product categories (self-referential).
 - `id` (UUID), `name`, `slug` (unique), `image?`, `description?`
 - `parentId?` → self-relation `"CategoryHierarchy"` (parent / children)
+- `sortOrder` (Int, default `0`) — **manual display order** (1, 2, 3 …), set from Admin → Categories. It is the sort key for every category listing (admin table, mega-menu, storefront grids), with the name as the tie-breaker.
 - M2M `products` via implicit join table `"ProductCategories"`
-- Indexes: parentId, name, slug
+- Indexes: parentId, name, slug, sortOrder
 
 ### Product
 - `id` (UUID), `title`, `slug` (unique), `sku` (unique)
@@ -93,7 +94,8 @@ Shipping snapshot attached to each order.
 `recalculateOrderTotal()` in `src/actions/orders.js` is the single place that recomputes it, called
 whenever an item quantity changes, an item is deleted, or the delivery charge / discount is edited.
 A discount larger than `subtotal + deliveryCharge` is capped server-side so the total cannot go
-negative. Every consumer (admin list, detail, dashboard, sales report) reads the stored `total`,
+negative — and the cap is measured against the *new* delivery charge, so lowering the delivery
+charge re-clamps a discount that was entered earlier. Every consumer (admin list, detail, dashboard, sales report) reads the stored `total`,
 so those views need no change.
 
 ### OrderItem

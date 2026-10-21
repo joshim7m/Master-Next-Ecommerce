@@ -105,12 +105,17 @@ async function importCategories(filePath, extractedDir, report) {
       // (docs §7.3).
       const slug = existingId ? baseSlug : uniqueSlug(baseSlug, slugToId);
       const image = await importCategoryImage(row.image, extractedDir, errors, rowNumber);
+      const order = Number(clean(row.order));
 
       const data = {
         name,
         description: clean(row.description),
         // An empty Image cell means "not supplied" — never wipe what is already there.
         ...(image ? { image } : {}),
+        // Same rule for the display order: a blank or unparsable cell leaves the
+        // stored number alone, so a sheet without the column cannot scramble a
+        // list the owner has numbered by hand.
+        ...(Number.isFinite(order) && clean(row.order) !== null ? { sortOrder: Math.max(0, Math.trunc(order)) } : {}),
       };
 
       let category;

@@ -11,7 +11,7 @@ export default function AdminCategoriesPage() {
   const [search, setSearch] = useState('');
   const [parentFilter, setParentFilter] = useState('');
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: '', slug: '', image: '', description: '' });
+  const [form, setForm] = useState({ name: '', slug: '', image: '', description: '', parentId: '', sortOrder: '' });
   const [page, setPage] = useState(0);
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function AdminCategoriesPage() {
   }, []);
 
   const filtered = useMemo(() => {
-    let list = categories;
+    let list = [...categories];
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter((c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q));
@@ -28,19 +28,39 @@ export default function AdminCategoriesPage() {
       if (parentFilter === 'top') list = list.filter((c) => !c.parentId);
       else list = list.filter((c) => c.parentId === parentFilter);
     }
-    return list;
+    // Sorted here rather than trusting the server order, so an inline order
+    // edit moves the row the moment it is saved.
+    return list.sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
+    );
   }, [categories, search, parentFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const safePage = Math.min(page, totalPages - 1);
   const paginated = filtered.slice(safePage * PER_PAGE, (safePage + 1) * PER_PAGE);
 
-  const resetForm = () => setForm({ name: '', slug: '', image: '', description: '', parentId: '' });
-  const openCreate = () => { setEditing('new'); resetForm(); };
+  /** The number a new category gets by default: one past the last one. */
+  const nextOrderNumber = () =>
+    categories.length ? Math.max(...categories.map((c) => c.sortOrder ?? 0)) + 1 : 1;
+
+  const resetForm = () => setForm({ name: '', slug: '', image: '', description: '', parentId: '', sortOrder: '' });
+  const openCreate = () => {
+    setEditing('new');
+    // Pre-filled with the next free position, so a new category lands at the
+    // end of the list instead of wherever an empty number would put it.
+    setForm({ name: '', slug: '', image: '', description: '', parentId: '', sortOrder: String(nextOrderNumber()) });
+  };
 
   const openEdit = (cat) => {
     setEditing(cat.id);
-    setForm({ name: cat.name, slug: cat.slug, image: cat.image || '', description: cat.description || '', parentId: cat.parentId || '' });
+    setForm({
+      name: cat.name,
+      slug: cat.slug,
+      image: cat.image || '',
+      description: cat.description || '',
+      parentId: cat.parentId || '',
+      sortOrder: String(cat.sortOrder ?? 0),
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -168,6 +188,19 @@ export default function AdminCategoriesPage() {
               <input name="description" value={form.description} onChange={handleChange} className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white" />
             </div>
             <div>
+              <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider dark:text-slate-400">Order No</label>
+              <input
+                name="sortOrder"
+                type="number"
+                min={0}
+                step={1}
+                value={form.sortOrder}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+              />
+              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Display order — lower numbers come first.</p>
+            </div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-slate-500 uppercase tracking-wider dark:text-slate-400">Parent Category</label>
               <select
                 name="parentId"
@@ -196,17 +229,16 @@ export default function AdminCategoriesPage() {
         <table className="w-full min-w-[600px] text-left text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50">
-              <th className="w-10 py-3 pl-2 pr-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">SN</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Category</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Slug</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Parent</th>
+              <th className="w-24 py-3 pl-2 pr-1 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400" title="Display order — lower numbers come first">Order No</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {paginated.map((cat, index) => (
+            {paginated.map((cat) => (
               <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30">
-                <td className="w-10 py-3 pl-2 pr-1 text-slate-500 whitespace-nowrap dark:text-slate-400">{safePage * PER_PAGE + index + 1}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     {cat.image ? (
@@ -224,6 +256,7 @@ export default function AdminCategoriesPage() {
                 </td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{cat.slug}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{cat.parent?.name || <span className="text-slate-300 dark:text-slate-600">none</span>}</td>
+                <td className="w-24 py-3 pl-2 pr-1 font-medium text-slate-700 dark:text-slate-300">{cat.sortOrder ?? 0}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="inline-flex items-center gap-1">
                     <button onClick={() => openEdit(cat)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-[#2f0f6b] dark:hover:bg-slate-700 dark:hover:text-[#a78bfa]" title="Edit category">

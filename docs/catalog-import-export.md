@@ -57,7 +57,7 @@ No queue library needed.
 | Table | Columns used |
 |---|---|
 | `Product` | `id`, `title`, `slug` (unique), `sku` (unique, **non-nullable**), `description?`, `specification?`, `metaDescription?`, `tags?`, `unite_price` (Decimal, required), `sale_price` (Decimal?, optional), `quantity` (Int?), `status` (`publish` \| `draft`), `featured` (Boolean), `videoUrl?` |
-| `Category` | `id`, `name`, `slug` (unique), `parentId?`, `image?`, `description?`, self-relation `parent`/`children` |
+| `Category` | `id`, `name`, `slug` (unique), `parentId?`, `image?`, `description?`, `sortOrder` (Int, default `0` — manual display order), self-relation `parent`/`children` |
 | `ProductImage` | `id`, `productId` FK, `image_path`, `altText?` |
 | `ProductOption` | `id`, `productId` FK, `name`, `position` (`@@unique([productId, position])`, max 3 in the admin UI) |
 | `ProductVariant` | `id`, `productId` FK, `sku?` (**not** unique), `options` (Json, string array), `unite_price` (Decimal?), `sale_price` (Decimal?), `quantity` (Int, required), `isDefault` (Boolean), `imageId?` → `ProductImage.id` |
@@ -134,7 +134,7 @@ export const PRODUCT_COLUMNS = [
   'Categories', 'Category Slugs', 'Images', 'Image Alt Texts',
 ];
 
-export const CATEGORY_COLUMNS = ['Name', 'Slug', 'Parent Slug', 'Description', 'Image'];
+export const CATEGORY_COLUMNS = ['Name', 'Slug', 'Parent Slug', 'Description', 'Image', 'Order'];
 export const OPTION_COLUMNS   = ['Product Slug', 'Name', 'Position'];
 export const VARIANT_COLUMNS  = ['Product Slug', 'SKU', 'Options', 'Unit Price', 'Sale Price', 'Quantity', 'Is Default', 'Image'];
 export const UPSELL_COLUMNS   = ['Product Slug', 'Upsell Product Slug', 'Sort Order'];
@@ -320,10 +320,12 @@ Categories, Category Slugs, Images, Image Alt Texts
 **`categories.csv`**
 
 ```
-Name, Slug, Parent Slug, Description, Image
+Name, Slug, Parent Slug, Description, Image, Order
 ```
 
 `Parent Slug` is a **slug**, not a name. This is what makes hierarchy portable: a parent row may declare `Slug = cosmetics` while `Name = কসমেটিকস`, and resolving by name would fork a duplicate orphan node. `Image` is a filename under `images/categories/`.
+
+`Order` carries the category's manual display order (`Category.sortOrder`, 1, 2, 3 …). It is the sort key for every category listing, so it round-trips: a sheet that keeps the column preserves the order customers see. A **blank or unparsable cell leaves the stored number alone**, exactly like a blank `Image` cell — a sheet without the column cannot scramble a list the owner numbered by hand.
 
 **`options.csv`**
 
@@ -436,7 +438,7 @@ Deliberately asymmetric, because the entities have different jobs:
 
 | Entity | Policy | Why |
 |---|---|---|
-| **Categories** | **Upsert by slug** — update name/description/parent/image | The whole point is being able to *repair* a hierarchy and images. A create-only policy makes a wrong parent permanently unfixable by re-import. A blank `Image` column leaves the existing image alone rather than wiping it. |
+| **Categories** | **Upsert by slug** — update name/description/parent/image/order | The whole point is being able to *repair* a hierarchy and images. A create-only policy makes a wrong parent permanently unfixable by re-import. A blank `Image` or `Order` column leaves the existing value alone rather than wiping it. |
 | **Products** | Skip on existing SKU | Long-standing guarantee; products are never overwritten. |
 | **Options** | Create for newly created products | Tied to product creation. |
 | **Variants** | Skip when a variant with the same SKU **or** the same `options` array already exists on that product | `ProductVariant.sku` is nullable and not unique, so neither key alone is sufficient (§2.2). Checking both prevents two rows of the same size/colour combination from both being created. Never overwrites. |

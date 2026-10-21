@@ -15,6 +15,11 @@ model Category {
   description String?
   parentId    String?
 
+  /// Manual display order (1, 2, 3 …). Set from Admin → Categories; it is the
+  /// sort key for both the admin table and the storefront listings, so the
+  /// owner decides the order customers see instead of the alphabet.
+  sortOrder   Int     @default(0)
+
   parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children Category[] @relation("CategoryHierarchy")
   products Product[]  @relation("ProductCategories")
@@ -24,6 +29,7 @@ model Category {
 
   @@index([parentId])
   @@index([name])
+  @@index([sortOrder])
 }
 
 model Product {

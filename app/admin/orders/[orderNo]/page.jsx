@@ -100,6 +100,9 @@ export default function OrderDetailPage() {
       await updateOrderDetails(order.id, { deliveryCharge: val });
       const updated = await getOrderByOrderNo(params.orderNo);
       setOrder(updated);
+      // A lower charge can cap an existing discount, so re-read what was stored.
+      setDeliveryInput(String(Number(updated.details?.deliveryCharge)));
+      setDiscountInput(String(Number(updated.details?.discount || 0)));
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch {}
@@ -190,6 +193,8 @@ export default function OrderDetailPage() {
   const discountOverLimit = parseFloat(discountInput) > maxDiscount;
   const osColor = orderStatusColors[order.orderStatus] || { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-400', dot: 'bg-slate-400' };
   const canEdit = order.orderStatus !== 'completed';
+  // Money is frozen once the order is delivered or cancelled.
+  const moneyLocked = order.orderStatus === 'completed' || order.orderStatus === 'cancelled';
 
   /* ── Customer card: derived values for edit mode ── */
   const customerLocked = order.orderStatus === 'completed' || order.orderStatus === 'cancelled';
@@ -289,6 +294,7 @@ export default function OrderDetailPage() {
       const updated = await getOrderByOrderNo(params.orderNo);
       setOrder(updated);
       setDeliveryInput(updated.details ? String(Number(updated.details.deliveryCharge)) : '0');
+      setDiscountInput(String(Number(updated.details?.discount || 0)));
       setEditingCustomer(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -338,7 +344,7 @@ export default function OrderDetailPage() {
             Courier Booking
           </button>
           <Link
-            href={`/admin/orders/${order.orderNo}/invoice?autoprint=1`}
+            href={`/admin/orders/${order.orderNo}/invoice`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white"
@@ -446,6 +452,14 @@ export default function OrderDetailPage() {
               {deliveryCharge > 0 ? `৳${deliveryCharge.toLocaleString()}` : 'Free'}
             </span>
           </div>
+          {discount > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-500 dark:text-slate-400">Discount</span>
+              <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                −৳{discount.toLocaleString()}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between border-t border-slate-200 pt-2 text-base dark:border-slate-700">
             <span className="font-semibold text-slate-900 dark:text-white">Total</span>
             <span className="text-lg font-bold text-[#2f0f6b] dark:text-[#a78bfa]">৳{Number(order.total).toLocaleString()}</span>
@@ -485,7 +499,7 @@ export default function OrderDetailPage() {
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 dark:text-slate-400">
                 Delivery Charge
               </label>
-              {order.orderStatus === 'completed' || order.orderStatus === 'cancelled' ? (
+              {moneyLocked ? (
                 <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-sm dark:bg-slate-900/50">
                   <span className="text-slate-900 font-medium dark:text-white">৳{deliveryCharge > 0 ? deliveryCharge.toLocaleString() : '0'}</span>
                   <span className="inline-flex items-center gap-1 rounded-md bg-slate-200/60 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -528,7 +542,56 @@ export default function OrderDetailPage() {
                   </button>
                 </div>
               )}
-              <p className="mt-1.5 text-xs text-slate-400 dark:text-slate-500">Updating delivery charge will recalculate the total.</p>
+            </div>
+
+            {/* Discount Amount */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 dark:text-slate-400">
+                Discount Amount
+              </label>
+              {moneyLocked ? (
+                <div className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2.5 text-sm dark:bg-slate-900/50">
+                  <span className="text-slate-900 font-medium dark:text-white">৳{discount > 0 ? discount.toLocaleString() : '0'}</span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-slate-200/60 px-2 py-0.5 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Locked
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400 dark:text-slate-500">৳</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={discountInput}
+                      onChange={(e) => setDiscountInput(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 py-2 pl-7 pr-3 text-sm focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <button
+                    onClick={handleDiscountUpdate}
+                    disabled={saving}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#2f0f6b] px-4 py-2 text-sm font-medium text-white hover:bg-[#2f0f6b]/90 transition disabled:opacity-50 dark:bg-[#a78bfa] dark:text-slate-900 dark:hover:bg-[#a78bfa]/90"
+                  >
+                    {saving ? (
+                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 text-xs">

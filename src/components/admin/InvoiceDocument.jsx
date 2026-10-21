@@ -6,6 +6,10 @@
  * selectable glyphs. The raster download (src/lib/invoicePdf.js) captures this
  * same DOM, which is why the sheet is one self-contained block.
  *
+ * `compact` drops the fixed A4 page box so the same sheet can sit inside a
+ * modal: the width follows the container, the page is as tall as its content,
+ * and the print-only `.invoice-sheet` rules (which force 210mm) are left off.
+ *
  * Bangla labels are primary with a small English line beneath. Never render
  * secrets from SiteSetting (jwtSecret, telegramBotToken, telegramChatId) —
  * only the whitelisted brand fields below.
@@ -47,7 +51,7 @@ function Label({ bn, en }) {
   );
 }
 
-export default function InvoiceDocument({ order, settings = {} }) {
+export default function InvoiceDocument({ order, settings = {}, compact = false }) {
   if (!order) return null;
 
   const details = order.details || {};
@@ -62,8 +66,16 @@ export default function InvoiceDocument({ order, settings = {} }) {
 
   return (
     <div
-      className="invoice-sheet relative mx-auto bg-white text-[13px]"
-      style={{ width: '210mm', minHeight: '297mm', padding: '14mm 14mm 16mm', color: INK }}
+      className={
+        compact
+          ? 'relative bg-white text-[13px]'
+          : 'invoice-sheet relative mx-auto bg-white text-[13px]'
+      }
+      style={
+        compact
+          ? { width: '100%', padding: '18px 20px', color: INK }
+          : { width: '210mm', minHeight: '297mm', padding: '14mm 14mm 16mm', color: INK }
+      }
     >
       {/* Cancelled orders get a watermark so a printed copy can't be mistaken for live */}
       {order.orderStatus === 'cancelled' && (
@@ -81,36 +93,42 @@ export default function InvoiceDocument({ order, settings = {} }) {
       )}
 
       <div className="relative">
-        {/* ── Header ── */}
-        <div className="flex items-start justify-between gap-6 border-b-2 pb-4" style={{ borderColor: BRAND }}>
-          <div className="flex items-center gap-3">
-            {settings.logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={settings.logo} alt={siteName} className="h-14 w-auto object-contain" />
-            ) : null}
-            <div>
-              <h1 className="text-xl font-bold leading-tight" style={{ color: BRAND }}>{siteName}</h1>
-              {settings.address ? (
-                <p className="mt-1 max-w-[70mm] text-[11px] leading-relaxed" style={{ color: MUTED }}>
-                  {settings.address}
-                </p>
+        {/* ── Header ──
+            The brand block and the invoice number are the letterhead of the
+            printed document. The compact preview in the orders list already
+            names the order in its modal header, so it drops the letterhead and
+            starts at the meta strip. */}
+        {!compact ? (
+          <div className="flex items-start justify-between gap-6 border-b-2 pb-4" style={{ borderColor: BRAND }}>
+            <div className="flex items-center gap-3">
+              {settings.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={settings.logo} alt={siteName} className="h-14 w-auto object-contain" />
               ) : null}
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px]" style={{ color: MUTED }}>
-                {settings.mobile ? <span>📞 {settings.mobile}</span> : null}
-                {settings.email ? <span>✉ {settings.email}</span> : null}
-                {settings.siteUrl ? <span>{settings.siteUrl}</span> : null}
+              <div>
+                <h1 className="text-xl font-bold leading-tight" style={{ color: BRAND }}>{siteName}</h1>
+                {settings.address ? (
+                  <p className="mt-1 max-w-[70mm] text-[11px] leading-relaxed" style={{ color: MUTED }}>
+                    {settings.address}
+                  </p>
+                ) : null}
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px]" style={{ color: MUTED }}>
+                  {settings.mobile ? <span>📞 {settings.mobile}</span> : null}
+                  {settings.email ? <span>✉ {settings.email}</span> : null}
+                  {settings.siteUrl ? <span>{settings.siteUrl}</span> : null}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="shrink-0 text-right">
-            <p className="font-bangla text-lg font-bold leading-tight" style={{ color: INK }}>
-              ইনভয়েস
-            </p>
-            <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: MUTED }}>Invoice</p>
-            <p className="mt-2 text-base font-bold" style={{ color: BRAND }}>INV-{order.orderNo}</p>
+            <div className="shrink-0 text-right">
+              <p className="font-bangla text-lg font-bold leading-tight" style={{ color: INK }}>
+                ইনভয়েস
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: MUTED }}>Invoice</p>
+              <p className="mt-2 text-base font-bold" style={{ color: BRAND }}>INV-{order.orderNo}</p>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {/* ── Meta strip ── */}
         <div className="flex flex-wrap justify-between gap-4 border-b py-3" style={{ borderColor: LINE }}>
@@ -210,10 +228,14 @@ export default function InvoiceDocument({ order, settings = {} }) {
 
         {/* ── Totals ── */}
         <div className="flex justify-end py-4">
-          <div className="w-[85mm] space-y-1.5 text-[12px]">
+          <div className={`${compact ? 'w-[62%] max-w-[260px]' : 'w-[85mm]'} space-y-1.5 text-[12px]`}>
             <div className="flex justify-between">
               <span style={{ color: MUTED }}>Subtotal</span>
               <span className="font-medium">{money(subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: MUTED }}>Delivery</span>
+              <span className="font-medium">{deliveryCharge > 0 ? money(deliveryCharge) : 'Free'}</span>
             </div>
             {discount > 0 ? (
               <div className="flex justify-between">
@@ -221,10 +243,6 @@ export default function InvoiceDocument({ order, settings = {} }) {
                 <span className="font-medium" style={{ color: '#047857' }}>−{money(discount)}</span>
               </div>
             ) : null}
-            <div className="flex justify-between">
-              <span style={{ color: MUTED }}>Delivery</span>
-              <span className="font-medium">{deliveryCharge > 0 ? money(deliveryCharge) : 'Free'}</span>
-            </div>
             <div
               className="flex justify-between border-t pt-2 text-base"
               style={{ borderColor: BRAND }}
@@ -240,17 +258,23 @@ export default function InvoiceDocument({ order, settings = {} }) {
           </div>
         </div>
 
-        {/* ── Footer ── */}
-        <div
-          className="mt-auto border-t pt-3 text-center text-[11px]"
-          style={{ borderColor: LINE, color: MUTED }}
-        >
-          <p className="font-bangla text-[13px] font-medium" style={{ color: INK }}>
-            ধন্যবাদ — আপনার অর্ডারের জন্য আপনাকে ধন্যবাদ।
-          </p>
-          <p className="mt-0.5">Thank you for your order.</p>
-          {settings.copyrightText ? <p className="mt-1.5">{settings.copyrightText}</p> : null}
-        </div>
+        {/* ── Footer ──
+            The thank-you note belongs to the document handed to the customer.
+            The compact preview drops the whole footer block — the modal has
+            its own footer, and an empty bordered strip below the totals would
+            just be noise. */}
+        {!compact ? (
+          <div
+            className="mt-auto border-t pt-3 text-center text-[11px]"
+            style={{ borderColor: LINE, color: MUTED }}
+          >
+            <p className="font-bangla text-[13px] font-medium" style={{ color: INK }}>
+              ধন্যবাদ — আপনার অর্ডারের জন্য আপনাকে ধন্যবাদ।
+            </p>
+            <p className="mt-0.5">Thank you for your order.</p>
+            {settings.copyrightText ? <p className="mt-1.5">{settings.copyrightText}</p> : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

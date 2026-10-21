@@ -4,6 +4,7 @@ import path from 'path';
 import { stringify } from 'csv-stringify';
 import { ZipArchive } from 'archiver';
 import prisma from '@/src/lib/prisma';
+import { CATEGORY_ORDER_BY } from '@/src/lib/categoryOrder';
 import {
   CHUNK_SIZE,
   PRODUCT_COLUMNS,
@@ -53,8 +54,8 @@ export async function buildCatalogZip() {
 
 async function writeCategoryCsv(buildDir, imageDir) {
   const categories = await prisma.category.findMany({
-    orderBy: { name: 'asc' },
-    select: { name: true, slug: true, parent: { select: { slug: true } }, description: true, image: true },
+    orderBy: CATEGORY_ORDER_BY,
+    select: { name: true, slug: true, parent: { select: { slug: true } }, description: true, image: true, sortOrder: true },
   });
 
   const targetDir = path.join(imageDir, IMAGE_FOLDERS.categories);
@@ -71,6 +72,7 @@ async function writeCategoryCsv(buildDir, imageDir) {
       category.parent?.slug ?? '',
       category.description ?? '',
       imageName ?? '',
+      String(category.sortOrder ?? 0),
     ]);
   }
 

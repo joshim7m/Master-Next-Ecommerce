@@ -1,10 +1,89 @@
-node_modules
-.next
-out
+# ===========================================================================
+# Dependencies
+# ===========================================================================
+node_modules/
+.pnp
+.pnp.js
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# ===========================================================================
+# Next.js
+# ===========================================================================
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# ===========================================================================
+# Production / bundler output
+# ===========================================================================
+/build
+/dist
+
+# ===========================================================================
+# Testing
+# ===========================================================================
+/coverage
+/.nyc_output
+
+# ===========================================================================
+# Environment — never commit secrets
+# ===========================================================================
 .env
-.DS_Store
-coverage
-catalogData.json
+.env.*
+!.env.example
+
+# ===========================================================================
+# Logs
+# ===========================================================================
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
+
+# ===========================================================================
+# Caches, temp files and pid files
+# ===========================================================================
+.cache/
+.temp/
+.tmp/
+*.pid
+*.pid.lock
+
+# ===========================================================================
+# OS and editor noise
+# ===========================================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+
+# ===========================================================================
+# Generated / local-only data
+# ===========================================================================
+catalogData.json
+prisma/*.db
+prisma/*.db-journal
+
+# ===========================================================================
+# Uploaded media — TRACKED ON PURPOSE
+# ===========================================================================
+# public/uploads/ and data/uploads/ hold the images the admin uploaded
+# through the panel (data/uploads is the live one, public/uploads the legacy
+# one). They are site content, not build output — the storefront serves them
+# straight from the repo — so they are committed and pushed with the code.
+#
+# Nothing above may exclude them. The negations below make that explicit and
+# keep it true even if a broad rule is added later.
+!/public/uploads/
+!/public/uploads/**
+!/data/uploads/
+!/data/uploads/**

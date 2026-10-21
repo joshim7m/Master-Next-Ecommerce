@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getOrdersPage, getCustomerOrderStats, updateOrderStatus } from '../../../src/actions/orders';
+import InvoicePreviewModal from '../../../src/components/admin/InvoicePreviewModal';
 
 const orderStatuses = ['pending', 'processing', 'completed', 'cancelled', 'return', 'incomplete'];
 
@@ -13,15 +14,6 @@ const orderStatusColors = {
   cancelled: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   return: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
   incomplete: 'bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300',
-};
-
-const orderStatusDotColors = {
-  pending: 'bg-amber-500',
-  processing: 'bg-blue-500',
-  completed: 'bg-emerald-500',
-  cancelled: 'bg-red-500',
-  return: 'bg-purple-500',
-  incomplete: 'bg-slate-400',
 };
 
 /*
@@ -83,169 +75,42 @@ function pageWindow(current, total) {
   return out;
 }
 
-function ItemsSection({ items }) {
-  if (!items?.length) return null;
+/**
+ * Inline status control for the list.
+ *
+ * It replaces the status dropdown that used to live inside the expandable
+ * details panel, so the quick "mark as processing / completed" workflow
+ * survives without any expand/shrink.
+ */
+function StatusSelect({ order, onUpdate }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <div className="flex items-center gap-2.5 bg-gradient-to-r from-purple-50 to-purple-50/50 border-b border-slate-200 px-5 py-3.5 dark:bg-gradient-to-r dark:from-purple-900/20 dark:to-purple-900/10 dark:border-slate-700">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-          </svg>
-        </div>
-        <span className="text-sm font-semibold text-slate-900 dark:text-white">Order Items ({items.length})</span>
-      </div>
-      <div className="divide-y divide-slate-100 dark:divide-slate-700">
-        {items.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30 sm:gap-4 sm:px-5 sm:py-3.5">
-            <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50 sm:h-14 sm:w-14">
-              {item.itemImagePath ? (
-                <img src={item.itemImagePath} alt={item.productTitle} className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full items-center justify-center text-slate-300 dark:text-slate-600">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                  </svg>
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-slate-900 truncate dark:text-white truncate max-w-[300px] md:max-w-[550px]">{item.productTitle}</p>
-              {item.variantName && (
-                <span className="mt-0.5 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700/50 dark:text-slate-400">
-                  <svg className="h-3 w-3 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                  </svg>
-                  {item.variantName}
-                </span>
-              )}
-            </div>
-            <div className="text-right shrink-0">
-              <p className="text-xs text-slate-500 sm:text-sm dark:text-slate-400">৳{Number(item.purchasePrice).toLocaleString()} × {item.quantity}</p>
-              <p className="text-sm font-semibold text-slate-900 dark:text-white">৳{(Number(item.purchasePrice) * item.quantity).toLocaleString()}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <select
+      value={order.orderStatus}
+      onChange={(e) => onUpdate('orderStatus', e.target.value)}
+      aria-label={`Status for order ${order.orderNo}`}
+      className={`inline-block rounded-full border border-transparent px-2.5 py-1 text-xs font-medium transition focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa] ${
+        orderStatusColors[order.orderStatus] ||
+        'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
+      }`}
+    >
+      {orderStatuses.map((s) => (
+        <option key={s} value={s}>
+          {s}
+        </option>
+      ))}
+    </select>
   );
 }
 
-function CustomerCard({ details, user }) {
+/** The order total, with the discount that produced it, when there is one. */
+function TotalCell({ order }) {
+  const discount = Number(order.details?.discount || 0);
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <div className="flex items-center gap-2.5 bg-gradient-to-r from-blue-50 to-blue-50/50 border-b border-slate-200 px-4 py-3 dark:bg-gradient-to-r dark:from-blue-900/20 dark:to-blue-900/10 dark:border-slate-700">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
-        </div>
-        <span className="text-sm font-semibold text-slate-900 dark:text-white">Customer</span>
-      </div>
-      <div className="space-y-3 p-4 text-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500 dark:text-slate-400">Name</span>
-          <span className="font-medium text-slate-900 dark:text-white">{details?.customerName || user?.name || '—'}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500 dark:text-slate-400">Phone</span>
-          <span className="font-medium text-slate-900 dark:text-white">{details?.phoneNumber || '—'}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500 dark:text-slate-400">Area</span>
-          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-400">{details?.shippingArea || '—'}</span>
-        </div>
-        <div>
-          <span className="text-slate-500 dark:text-slate-400">Address</span>
-          <p className="mt-0.5 rounded-lg bg-slate-50 p-2.5 text-slate-900 border border-slate-100 dark:bg-slate-900/50 dark:border-slate-700 dark:text-white">{details?.shippingAddress || '—'}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatusCard({ order, onUpdate }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <div className="flex items-center gap-2.5 bg-gradient-to-r from-amber-50 to-amber-50/50 border-b border-slate-200 px-4 py-3 dark:bg-gradient-to-r dark:from-amber-900/20 dark:to-amber-900/10 dark:border-slate-700">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <span className="text-sm font-semibold text-slate-900 dark:text-white">Status</span>
-      </div>
-      <div className="space-y-4 p-4">
-        <div>
-          <label className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">Order</label>
-          <select value={order.orderStatus} onChange={(e) => onUpdate('orderStatus', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 p-2 text-sm focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]">
-            {orderStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-4 pt-1 text-xs">
-          <span className="flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full ${orderStatusDotColors[order.orderStatus] || 'bg-slate-400'}`} />
-            {order.orderStatus}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DeliveryCard({ details, items, total }) {
-  const subtotal = items.reduce((s, i) => s + Number(i.purchasePrice) * i.quantity, 0);
-  const charge = Number(details?.deliveryCharge || 0);
-  const discount = Number(details?.discount || 0);
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <div className="flex items-center gap-2.5 bg-gradient-to-r from-emerald-50 to-emerald-50/50 border-b border-slate-200 px-4 py-3 dark:bg-gradient-to-r dark:from-emerald-900/20 dark:to-emerald-900/10 dark:border-slate-700">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2-1m4-1l2 1m4-4l2 1m-8 7l4-4 4 4M5 18h14" />
-          </svg>
-        </div>
-        <span className="text-sm font-semibold text-slate-900 dark:text-white">Delivery</span>
-      </div>
-      <div className="space-y-3 p-4 text-sm">
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500 dark:text-slate-400">Charge</span>
-          <span className="font-medium text-slate-900 dark:text-white">
-            {charge > 0 ? `৳${charge.toLocaleString()}` : <span className="text-emerald-600 font-medium dark:text-emerald-400">Free</span>}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="text-slate-500 dark:text-slate-400">Subtotal</span>
-          <span className="font-medium text-slate-900 dark:text-white">৳{subtotal.toLocaleString()}</span>
-        </div>
-        {discount > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500 dark:text-slate-400">Discount</span>
-            <span className="font-medium text-emerald-600 dark:text-emerald-400">−৳{discount.toLocaleString()}</span>
-          </div>
-        )}
-        <div className="border-t border-slate-100 pt-2 dark:border-slate-700">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-slate-900 dark:text-white">Total</span>
-            <span className="text-lg font-bold text-[#2f0f6b] dark:text-[#a78bfa]">৳{Number(total).toLocaleString()}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ExpandedDetails({ order, onStatusUpdate }) {
-  return (
-    <div className="border-t border-slate-200 bg-gradient-to-b from-slate-50 to-white dark:border-slate-700 dark:from-slate-800 dark:to-slate-900">
-      <div className="p-4 sm:p-5 space-y-4 sm:space-y-5">
-        <ItemsSection items={order.items} />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <CustomerCard details={order.details} user={order.user} />
-          <StatusCard order={order} onUpdate={(f, v) => onStatusUpdate(order.id, f, v)} />
-          <DeliveryCard details={order.details} items={order.items} total={order.total} />
-        </div>
-      </div>
+    <div>
+      <p className="font-medium text-slate-900 dark:text-white">৳{Number(order.total).toLocaleString()}</p>
+      {discount > 0 && (
+        <p className="text-xs text-emerald-600 dark:text-emerald-400">−৳{discount.toLocaleString()} discount</p>
+      )}
     </div>
   );
 }
@@ -352,10 +217,14 @@ export default function AdminOrdersPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const [expanded, setExpanded] = useState(null);
   const [statsOrder, setStatsOrder] = useState(null);
   const [customerStats, setCustomerStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
+
+  const [invoiceOrder, setInvoiceOrder] = useState(null);
+  const [invoiceData, setInvoiceData] = useState(null);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceError, setInvoiceError] = useState(null);
 
   const minDate = bdKeyDaysAgo(30);
   const maxDate = bdDateKey();
@@ -453,6 +322,13 @@ export default function AdminOrdersPage() {
     return () => window.removeEventListener('keydown', handler);
   }, [statsOrder]);
 
+  useEffect(() => {
+    if (!invoiceOrder) return;
+    const handler = (e) => { if (e.key === 'Escape') setInvoiceOrder(null); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [invoiceOrder]);
+
   const selectPreset = (key) => {
     setPreset(key);
     setPage(1);
@@ -492,6 +368,32 @@ export default function AdminOrdersPage() {
       await updateOrderStatus(id, { [field]: value });
       setRefreshKey((k) => k + 1);
     } catch {}
+  };
+
+  /**
+   * Open the invoice preview for an order.
+   *
+   * The sheet needs the brand settings (site name, logo, contact), which only
+   * the server may read, so the preview is fetched rather than assembled from
+   * the list row. Fetching per open also means the numbers are the ones in the
+   * database right now — a discount edited on the detail page shows up here
+   * without a reload.
+   */
+  const openInvoice = async (order) => {
+    setInvoiceOrder(order);
+    setInvoiceData(null);
+    setInvoiceError(null);
+    setInvoiceLoading(true);
+    try {
+      const res = await fetch(`/api/admin/orders/invoice-preview?orderNo=${encodeURIComponent(order.orderNo)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setInvoiceData(data);
+    } catch {
+      setInvoiceError('Could not load the invoice. Please try again.');
+    } finally {
+      setInvoiceLoading(false);
+    }
   };
 
   if (loading) return <div className="p-8 text-slate-500 dark:text-slate-400">Loading...</div>;
@@ -652,23 +554,18 @@ export default function AdminOrdersPage() {
         <div className="space-y-3 md:hidden">
           {orders.map((order) => (
             <div key={order.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <div
-                onClick={() => setExpanded(expanded === order.id ? null : order.id)}
-                className="flex items-center gap-3 px-4 py-3.5 cursor-pointer active:bg-slate-50 transition-colors dark:active:bg-slate-700/30"
-              >
+              <div className="flex items-center gap-3 px-4 py-3.5">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <Link href={`/admin/orders/${order.orderNo}`} className="text-sm font-semibold text-[#2f0f6b] hover:underline dark:text-[#a78bfa]" onClick={(e) => e.stopPropagation()}>
+                    <Link href={`/admin/orders/${order.orderNo}`} className="text-sm font-semibold text-[#2f0f6b] hover:underline dark:text-[#a78bfa]">
                       {order.orderNo}
                     </Link>
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${orderStatusColors[order.orderStatus] || 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'}`}>
-                      {order.orderStatus}
-                    </span>
+                    <StatusSelect order={order} onUpdate={(f, v) => handleStatusUpdate(order.id, f, v)} />
                   </div>
                   <p className="text-xs font-medium text-slate-900 dark:text-white">{order.details?.customerName || order.user?.name || '—'}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{order.details?.phoneNumber || ''}</p>
-                  <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                    <span className="font-medium text-slate-900 shrink-0 dark:text-white">৳{Number(order.total).toLocaleString()}</span>
+                  <div className="mt-0.5">
+                    <TotalCell order={order} />
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5 dark:text-slate-500">
                     {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', year: '2-digit' })}{' '}
@@ -676,7 +573,7 @@ export default function AdminOrdersPage() {
                   </p>
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); openStats(order); }}
+                  onClick={() => openStats(order)}
                   className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 dark:text-slate-500 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
                   title="Customer order stats"
                 >
@@ -688,23 +585,16 @@ export default function AdminOrdersPage() {
                   </svg>
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); setExpanded(expanded === order.id ? null : order.id); }}
-                  className={`shrink-0 rounded-lg p-2 transition ${
-                    expanded === order.id ? 'bg-[#2f0f6b]/10 text-[#2f0f6b] dark:bg-[#a78bfa]/15 dark:text-[#a78bfa]' : 'text-slate-400 dark:text-slate-500'
-                  }`}
+                  onClick={() => openInvoice(order)}
+                  className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-[#2f0f6b]/10 hover:text-[#2f0f6b] dark:text-slate-500 dark:hover:bg-[#a78bfa]/15 dark:hover:text-[#a78bfa]"
+                  title="View invoice"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    {expanded === order.id ? (
-                      <polyline points="18 15 12 9 6 15" />
-                    ) : (
-                      <polyline points="6 9 12 15 18 9" />
-                    )}
+                    <path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </button>
               </div>
-              {expanded === order.id && (
-                <ExpandedDetails order={order} onStatusUpdate={handleStatusUpdate} />
-              )}
             </div>
           ))}
           {orders.length === 0 && (
@@ -730,66 +620,52 @@ export default function AdminOrdersPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {orders.map((order) => (
-                <Fragment key={order.id}>
-                  <tr className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30">
-                    <td className="px-4 py-3">
-                      <Link href={`/admin/orders/${order.orderNo}`} className="font-medium text-[#2f0f6b] hover:underline dark:text-[#a78bfa]">{order.orderNo}</Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-slate-900 dark:text-white">{order.details?.customerName || order.user?.name || '—'}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{order.details?.phoneNumber || ''}</p>
-                    </td>
-                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">৳{Number(order.total).toLocaleString()}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${orderStatusColors[order.orderStatus] || 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'}`}>{order.orderStatus}</span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
-                      {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', year: '2-digit' })}{' '}
-                      {new Date(order.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{order.details?.ipAddress || '—'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-1">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); openStats(order); }}
-                          className="rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 dark:text-slate-500 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
-                          title="Customer order stats"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="4" y1="20" x2="4" y2="10" />
-                            <line x1="10" y1="20" x2="10" y2="4" />
-                            <line x1="16" y1="20" x2="16" y2="12" />
-                            <line x1="20" y1="20" x2="20" y2="16" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => setExpanded(expanded === order.id ? null : order.id)}
-                          className={`rounded-lg p-2 transition ${
-                            expanded === order.id
-                              ? 'bg-[#2f0f6b]/10 text-[#2f0f6b] dark:bg-[#a78bfa]/15 dark:text-[#a78bfa]'
-                              : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-300'
-                          }`}
-                          title={expanded === order.id ? 'Collapse' : 'Expand details'}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            {expanded === order.id ? (
-                              <polyline points="18 15 12 9 6 15" />
-                            ) : (
-                              <polyline points="6 9 12 15 18 9" />
-                            )}
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  {expanded === order.id && (
-                    <tr>
-                      <td colSpan={7} className="px-0 py-0">
-                        <ExpandedDetails order={order} onStatusUpdate={handleStatusUpdate} />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
+                <tr key={order.id} className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30">
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/orders/${order.orderNo}`} className="font-medium text-[#2f0f6b] hover:underline dark:text-[#a78bfa]">{order.orderNo}</Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-medium text-slate-900 dark:text-white">{order.details?.customerName || order.user?.name || '—'}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{order.details?.phoneNumber || ''}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <TotalCell order={order} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusSelect order={order} onUpdate={(f, v) => handleStatusUpdate(order.id, f, v)} />
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
+                    {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', year: '2-digit' })}{' '}
+                    {new Date(order.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
+                  </td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{order.details?.ipAddress || '—'}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        onClick={() => openStats(order)}
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 dark:text-slate-500 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+                        title="Customer order stats"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="4" y1="20" x2="4" y2="10" />
+                          <line x1="10" y1="20" x2="10" y2="4" />
+                          <line x1="16" y1="20" x2="16" y2="12" />
+                          <line x1="20" y1="20" x2="20" y2="16" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => openInvoice(order)}
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-[#2f0f6b]/10 hover:text-[#2f0f6b] dark:text-slate-500 dark:hover:bg-[#a78bfa]/15 dark:hover:text-[#a78bfa]"
+                        title="View invoice"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                          <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               ))}
               {orders.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400 dark:text-slate-500">{emptyText}</td></tr>
@@ -807,6 +683,16 @@ export default function AdminOrdersPage() {
           stats={customerStats}
           loading={statsLoading}
           onClose={() => setStatsOrder(null)}
+        />
+      )}
+
+      {invoiceOrder && (
+        <InvoicePreviewModal
+          order={invoiceOrder}
+          data={invoiceData}
+          loading={invoiceLoading}
+          error={invoiceError}
+          onClose={() => setInvoiceOrder(null)}
         />
       )}
     </section>

@@ -1,6 +1,6 @@
 # Plan — Order Invoice Download (Bangla-capable PDF)
 
-> Status: **Implemented** · Updated: 2026-10-05
+> Status: **Implemented** · Updated: 2026-10-05 · Amended: 2026-10-21
 > Adds a **Download Invoice** button to `/admin/orders/[orderNo]`. Goal: a print-quality A4 invoice
 > per order, in Bengali + English, branded with the logo and company info from Admin → Settings →
 > Site Setting.
@@ -8,6 +8,11 @@
 > **As built:** the phases below were followed in order. Two additions beyond the plan — the admin
 > layout renders the invoice route bare, and the logo is `stat`ed before use because the stored
 > `SiteSetting.logo` points at a file that no longer exists. See §8.
+>
+> **Amended 2026-10-21:** the **Print** button and the `?autoprint=1` shortcut were removed at the
+> owner's request — the page is opened to be downloaded, and a print dialog popping up on arrival
+> was more surprising than useful. **Download PDF is now the only output path.** The `@media print`
+> CSS in `app/globals.css` was left in place so a manual Ctrl+P still produces a clean A4 sheet.
 
 ---
 
@@ -120,10 +125,11 @@ Server component.
 - `notFound()` when the order is missing
 - `export const metadata` → `Invoice ${orderNo}`
 - Renders `<InvoiceDocument>` inside a thin client `<InvoiceActions>`:
-  - `প্রিন্ট / Print` → `window.print()`
+  - ~~`প্রিন্ট / Print` → `window.print()`~~ — **removed 2026-10-21**
   - `ডাউনলোড PDF / Download PDF` → §3.6 helper
-- Auto-print **only** when the URL carries `?autoprint=1` (the detail-page link adds it), so a manual
-  visit of the route is not hijacked
+- ~~Auto-print **only** when the URL carries `?autoprint=1` (the detail-page link adds it), so a manual
+  visit of the route is not hijacked~~ — **removed 2026-10-21**; the detail-page link now points at the
+  plain invoice URL
 
 ### 3.4 Admin chrome — `app/admin/layout.jsx`
 
@@ -172,8 +178,10 @@ export async function buildInvoicePdf(node, filename) {
   pattern (lines 142, 470-512)
 
 **Caveat, stated honestly:** this path is **raster** — text is not selectable or searchable, print
-quality is ~150 DPI at `scale: 2`, and the file is ~300 KB–1 MB. The **Print** button remains the
-high-fidelity, vector, tiny-file route. Shipping both is deliberate.
+quality is ~150 DPI at `scale: 2`, and the file is ~300 KB–1 MB. The **Print** button was the
+high-fidelity, vector, tiny-file route, and the two were shipped together deliberately — but the
+Print button was **removed on 2026-10-21**, so this raster path is now the only way to get the
+invoice out of the browser. Ctrl+P still works and prints the same sheet, vector and selectable.
 
 ### 3.7 Button — `app/admin/orders/[orderNo]/page.jsx`
 

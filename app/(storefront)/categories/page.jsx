@@ -2,6 +2,7 @@ import prisma from '../../../src/lib/prisma';
 import Link from 'next/link';
 import { getSiteSettings } from '../../../src/lib/getSiteSettings';
 import { siteNameOf, siteUrlOf, seoDescription } from '../../../src/lib/siteSettings';
+import { CATEGORY_ORDER_BY } from '../../../src/lib/categoryOrder';
 
 export async function generateMetadata() {
   const settings = await getSiteSettings();
@@ -43,7 +44,7 @@ export default async function CategoryListingPage({ searchParams }) {
     getSiteSettings(),
     prisma.category.count(),
     prisma.category.findMany({
-      orderBy: { name: 'asc' },
+      orderBy: CATEGORY_ORDER_BY,
       skip,
       take: PER_PAGE,
       include: { _count: { select: { products: true } } },

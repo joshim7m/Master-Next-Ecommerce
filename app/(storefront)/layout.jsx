@@ -4,6 +4,7 @@ import Footer from '@/src/components/storefront/Footer';
 import GoogleTagManager from '@/src/components/storefront/GoogleTagManager';
 import PageViewTracker from '@/src/components/storefront/PageViewTracker';
 import prisma from '@/src/lib/prisma';
+import { CATEGORY_ORDER_BY } from '@/src/lib/categoryOrder';
 import { getSiteSettings } from '@/src/lib/getSiteSettings';
 import { siteNameOf, siteUrlOf, brandSuffix, seoDescription, seoKeywords } from '@/src/lib/siteSettings';
 import { buildCategoryTreeForMenu } from '@/src/lib/categoryTree';
@@ -90,7 +91,7 @@ export default async function StorefrontLayout({ children }) {
     prisma.category
       .findMany({
         select: { id: true, name: true, slug: true, parentId: true },
-        orderBy: { name: 'asc' },
+        orderBy: CATEGORY_ORDER_BY,
       })
       .catch(() => []),
     // Published admin-managed pages, linked from the footer Company column.

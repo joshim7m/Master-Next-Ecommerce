@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import prisma from '../lib/prisma';
+import { CATEGORY_ORDER_BY } from '../lib/categoryOrder';
 
 function serialize(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -61,7 +62,7 @@ export async function getProducts() {
 export async function getCategories() {
   const categories = await prisma.category.findMany({
     include: { _count: { select: { products: true } } },
-    orderBy: { name: 'asc' },
+    orderBy: CATEGORY_ORDER_BY,
   });
   return serialize(categories);
 }

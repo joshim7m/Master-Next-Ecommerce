@@ -68,7 +68,7 @@ docs/                        # Project documentation
 ### Admin (`app/admin/`)
 - `/admin/login` → `/admin/dashboard`
 - `/admin/products` (+ `/create`, `/edit`) — catalog management with variants
-- `/admin/categories` — hierarchical category management
+- `/admin/categories` — hierarchical category management, with a manual display order (`Category.sortOrder`) set from the create/edit form and shown read-only in the table's **Order No** column; it drives every category listing
 - `/admin/orders`, `/admin/orders/[orderNo]` — order management
 - `/admin/blog/categories`, `/admin/blog/posts` (+ create/edit), `/admin/blog/advertisements`
 - `/admin/settings/site`, `/admin/settings/site-config`, `/admin/settings/home`,
@@ -95,6 +95,7 @@ docs/                        # Project documentation
 | `/api/admin/products` (+`/[id]`) | GET, POST / PUT, DELETE | Product CRUD incl. variant/image diffing |
 | `/api/admin/categories` (+`/[id]`) | GET, POST / PUT, DELETE | Category CRUD |
 | `/api/admin/orders` (+`/[id]`, `/search`) | GET / GET, PUT | Orders read/update |
+| `/api/admin/orders/invoice-preview?orderNo=…` | GET | Order + brand fields for the invoice preview modal |
 | `/api/admin/orders/block` / `unblock` | POST / DELETE | Device blocking |
 | `/api/admin/upload` | POST | Multi-file upload to `public/uploads/` (5MB max, type whitelist) |
 | `/api/admin/settings/site` | GET, PUT | SiteSetting singleton |

@@ -1,4 +1,5 @@
 import prisma from '../../../src/lib/prisma';
+import { CATEGORY_ORDER_BY } from '../../../src/lib/categoryOrder';
 import { getSiteSettings } from '../../../src/lib/getSiteSettings';
 import { siteNameOf, siteUrlOf, seoDescription } from '../../../src/lib/siteSettings';
 import Hero from './_partials/Hero';
@@ -61,7 +62,7 @@ export default async function HomePage({ searchParams }) {
     getSiteSettings(),
     prisma.category.findMany({
       include: { _count: { select: { products: true } }, children: { include: { _count: { select: { products: true } } } } },
-      orderBy: { name: 'asc' },
+      orderBy: CATEGORY_ORDER_BY,
     }),
     prisma.product.findMany({
       where: { status: 'publish', images: { some: {} } },
