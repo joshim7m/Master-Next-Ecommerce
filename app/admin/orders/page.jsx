@@ -1,18 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { getOrdersPage, getCustomerOrderStats, updateOrderStatus } from '../../../src/actions/orders';
 import InvoicePreviewModal from '../../../src/components/admin/InvoicePreviewModal';
 
-const orderStatuses = ['pending', 'processing', 'completed', 'cancelled', 'return', 'incomplete'];
+const orderStatuses = [
+  'pending', 'accepted', 'in_courier', 'hold', 'follow_up', 'processing',
+  'return', 'cancelled', 'completed', 'blocked', 'incomplete',
+];
 
 const orderStatusColors = {
   pending: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  processing: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  cancelled: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  accepted: 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  in_courier: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  hold: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  follow_up: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
+  processing: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
   return: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  cancelled: 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  completed: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  blocked: 'bg-rose-50 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
   incomplete: 'bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300',
 };
 
@@ -26,11 +35,20 @@ const BD_OFFSET_MS = 6 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const RANGE_PRESETS = [
+  { key: 'all', label: 'All' },
   { key: 'today', label: 'Today' },
   { key: 'yesterday', label: 'Yesterday' },
   { key: 'last7', label: 'Last 7 days' },
   { key: 'custom', label: 'Custom date' },
 ];
+
+/** Header label per preset — "custom" falls back to the resolved dates. */
+const PRESET_RANGE_LABELS = {
+  all: 'last 31 days',
+  today: 'today',
+  yesterday: 'yesterday',
+  last7: 'last 7 days',
+};
 
 const CHIP_BASE = 'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition';
 const CHIP_ON =
@@ -102,16 +120,32 @@ function StatusSelect({ order, onUpdate }) {
   );
 }
 
-/** The order total, with the discount that produced it, when there is one. */
+/** The product amount only — excludes delivery charge, matching the invoice subtotal. */
 function TotalCell({ order }) {
+  const items = order.items || [];
+  const productTotal = items.length
+    ? items.reduce((s, i) => s + Number(i.purchasePrice) * Number(i.quantity), 0)
+    : Number(order.total) - Number(order.details?.deliveryCharge || 0);
   const discount = Number(order.details?.discount || 0);
   return (
     <div>
-      <p className="font-medium text-slate-900 dark:text-white">৳{Number(order.total).toLocaleString()}</p>
+      <p className="font-medium text-slate-900 dark:text-white">৳{productTotal.toLocaleString()}</p>
       {discount > 0 && (
         <p className="text-xs text-emerald-600 dark:text-emerald-400">−৳{discount.toLocaleString()} discount</p>
       )}
     </div>
+  );
+}
+
+/** Row for orders with an admin note — small icon plus the note text, no label. */
+function OrderNote({ note, className = '' }) {
+  return (
+    <p className={`flex items-start gap-1 text-orange-300 ${className}`}>
+      <svg className="mt-0.5 h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2zM7 9h10M7 13h6" />
+      </svg>
+      <span className="whitespace-normal break-words">{note}</span>
+    </p>
   );
 }
 
@@ -197,14 +231,14 @@ function CustomerStatsModal({ stats, loading = false, onClose }) {
   );
 }
 
-export default function AdminOrdersPage() {
+function OrdersList() {
   const [orders, setOrders] = useState([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [range, setRange] = useState({ from: null, to: null });
 
-  const [preset, setPreset] = useState('today');
+  const [preset, setPreset] = useState('all');
   const [customFrom, setCustomFrom] = useState(() => bdKeyDaysAgo(6));
   const [customTo, setCustomTo] = useState(() => bdDateKey());
   const [appliedRange, setAppliedRange] = useState({ from: null, to: null });
@@ -230,15 +264,16 @@ export default function AdminOrdersPage() {
   const maxDate = bdDateKey();
   const customInvalid = Boolean(preset === 'custom' && customFrom && customTo && customFrom > customTo);
 
+  const searchParams = useSearchParams();
+  const statusParam = searchParams.get('status');
+
+  // The sidebar can point this page at a different ?status= while it stays
+  // mounted, so the param is read reactively — a mount-only read missed every
+  // click after the first navigation.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    const s = url.searchParams.get('status');
-    if (s && orderStatuses.includes(s)) {
-      setFilterOrderStatus(s);
-      setPage(1);
-    }
-  }, []);
+    setFilterOrderStatus(statusParam && orderStatuses.includes(statusParam) ? statusParam : 'all');
+    setPage(1);
+  }, [statusParam]);
 
   // Debounce the search box so every keystroke doesn't hit the database.
   useEffect(() => {
@@ -343,13 +378,6 @@ export default function AdminOrdersPage() {
     setPage(1);
   };
 
-  const clearFilters = () => {
-    setPreset('today');
-    setFilterOrderStatus('all');
-    setSearch('');
-    setPage(1);
-  };
-
   const openStats = (order) => {
     setStatsOrder(order);
     setCustomerStats({
@@ -398,21 +426,15 @@ export default function AdminOrdersPage() {
 
   if (loading) return <div className="p-8 text-slate-500 dark:text-slate-400">Loading...</div>;
 
-  const hasFilters = filterOrderStatus !== 'all' || search.trim() !== '';
   const emptyText =
     search.trim() !== '' || filterOrderStatus !== 'all'
       ? 'No orders match your filters.'
       : 'No orders in this period.';
   const rangeLabel =
-    preset === 'today'
-      ? 'today'
-      : preset === 'yesterday'
-        ? 'yesterday'
-        : preset === 'last7'
-          ? 'last 7 days'
-          : formatBdDate(range.from) === formatBdDate(range.to)
-            ? formatBdDate(range.from)
-            : `${formatBdDate(range.from)} – ${formatBdDate(range.to)}`;
+    PRESET_RANGE_LABELS[preset] ??
+    (formatBdDate(range.from) === formatBdDate(range.to)
+      ? formatBdDate(range.from)
+      : `${formatBdDate(range.from)} – ${formatBdDate(range.to)}`);
 
   return (
     <section className="space-y-5">
@@ -433,7 +455,7 @@ export default function AdminOrdersPage() {
 
       {/* ── Filters ── */}
       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        {/* One row on desktop: range chips · search · status · clear */}
+        {/* One row on desktop: range chips · search */}
         <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
           {RANGE_PRESETS.map((p) => (
             <button
@@ -462,32 +484,6 @@ export default function AdminOrdersPage() {
               className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm placeholder-slate-400 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500 dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]"
             />
           </div>
-
-          <select
-            value={filterOrderStatus}
-            onChange={(e) => {
-              setFilterOrderStatus(e.target.value);
-              setPage(1);
-            }}
-            className="w-full shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] sm:w-auto dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]"
-          >
-            <option value="all">All Status</option>
-            {orderStatuses.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-
-          {hasFilters && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="shrink-0 whitespace-nowrap text-xs font-medium text-slate-500 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-            >
-              Clear
-            </button>
-          )}
         </div>
 
         {preset === 'custom' && (
@@ -550,63 +546,9 @@ export default function AdminOrdersPage() {
       </div>
 
       <div className={refreshing ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-        {/* Mobile: card list */}
-        <div className="space-y-3 md:hidden">
-          {orders.map((order) => (
-            <div key={order.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-              <div className="flex items-center gap-3 px-4 py-3.5">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Link href={`/admin/orders/${order.orderNo}`} className="text-sm font-semibold text-[#2f0f6b] hover:underline dark:text-[#a78bfa]">
-                      {order.orderNo}
-                    </Link>
-                    <StatusSelect order={order} onUpdate={(f, v) => handleStatusUpdate(order.id, f, v)} />
-                  </div>
-                  <p className="text-xs font-medium text-slate-900 dark:text-white">{order.details?.customerName || order.user?.name || '—'}</p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{order.details?.phoneNumber || ''}</p>
-                  <div className="mt-0.5">
-                    <TotalCell order={order} />
-                  </div>
-                  <p className="text-xs text-slate-400 mt-0.5 dark:text-slate-500">
-                    {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', year: '2-digit' })}{' '}
-                    {new Date(order.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
-                  </p>
-                </div>
-                <button
-                  onClick={() => openStats(order)}
-                  className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600 dark:text-slate-500 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
-                  title="Customer order stats"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="4" y1="20" x2="4" y2="10" />
-                    <line x1="10" y1="20" x2="10" y2="4" />
-                    <line x1="16" y1="20" x2="16" y2="12" />
-                    <line x1="20" y1="20" x2="20" y2="16" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => openInvoice(order)}
-                  className="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-[#2f0f6b]/10 hover:text-[#2f0f6b] dark:text-slate-500 dark:hover:bg-[#a78bfa]/15 dark:hover:text-[#a78bfa]"
-                  title="View invoice"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                    <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ))}
-          {orders.length === 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white py-12 text-center text-sm text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
-              {emptyText}
-            </div>
-          )}
-        </div>
-
-        {/* Desktop: table */}
-        <div className="hidden md:block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <table className="w-full text-left text-sm">
+        {/* Orders table — horizontally scrollable on small screens */}
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/50">
                 <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Order</th>
@@ -637,6 +579,9 @@ export default function AdminOrdersPage() {
                   <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">
                     {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', year: '2-digit' })}{' '}
                     {new Date(order.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}
+                    {order.details?.orderNote && (
+                      <OrderNote note={order.details.orderNote} />
+                    )}
                   </td>
                   <td className="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{order.details?.ipAddress || '—'}</td>
                   <td className="px-4 py-3 text-right">
@@ -696,6 +641,18 @@ export default function AdminOrdersPage() {
         />
       )}
     </section>
+  );
+}
+
+/**
+ * `useSearchParams` needs a Suspense boundary when the route is prerendered,
+ * so the list lives in an inner component.
+ */
+export default function AdminOrdersPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-slate-500 dark:text-slate-400">Loading...</div>}>
+      <OrdersList />
+    </Suspense>
   );
 }
 

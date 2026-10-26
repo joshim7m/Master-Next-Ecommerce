@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 const ICON_PATHS = {
   dashboard: ['M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z'],
@@ -53,10 +54,39 @@ const iconColors = {
   truck: { bg: 'bg-lime-100', text: 'text-lime-600', darkBg: 'dark:bg-lime-900/30', darkText: 'dark:text-lime-400' },
 };
 
-const navItems = [
-  { label: 'Dashboard', href: '/admin/dashboard', icon: 'dashboard' },
-  { label: 'Orders', href: '/admin/orders', icon: 'orders' },
+const STATUS_ICONS = {
+  pending: { bg: 'bg-amber-100', text: 'text-amber-600', darkBg: 'dark:bg-amber-900/30', darkText: 'dark:text-amber-400' },
+  accepted: { bg: 'bg-sky-100', text: 'text-sky-600', darkBg: 'dark:bg-sky-900/30', darkText: 'dark:text-sky-400' },
+  in_courier: { bg: 'bg-blue-100', text: 'text-blue-600', darkBg: 'dark:bg-blue-900/30', darkText: 'dark:text-blue-400' },
+  hold: { bg: 'bg-orange-100', text: 'text-orange-600', darkBg: 'dark:bg-orange-900/30', darkText: 'dark:text-orange-400' },
+  follow_up: { bg: 'bg-cyan-100', text: 'text-cyan-600', darkBg: 'dark:bg-cyan-900/30', darkText: 'dark:text-cyan-400' },
+  return: { bg: 'bg-purple-100', text: 'text-purple-600', darkBg: 'dark:bg-purple-900/30', darkText: 'dark:text-purple-400' },
+  cancelled: { bg: 'bg-red-100', text: 'text-red-600', darkBg: 'dark:bg-red-900/30', darkText: 'dark:text-red-400' },
+  completed: { bg: 'bg-emerald-100', text: 'text-emerald-600', darkBg: 'dark:bg-emerald-900/30', darkText: 'dark:text-emerald-400' },
+  blocked: { bg: 'bg-rose-100', text: 'text-rose-600', darkBg: 'dark:bg-rose-900/40', darkText: 'dark:text-rose-300' },
+};
+
+/**
+ * The Orders group — the only group expanded by default. Status entries link
+ * into the orders list filter; `status` renders a colored dot instead of an icon.
+ */
+const ordersGroupItems = [
+  { label: 'All Orders', href: '/admin/orders', icon: 'orders' },
+  { label: 'Pending', href: '/admin/orders?status=pending', status: 'pending' },
+  { label: 'Accepted', href: '/admin/orders?status=accepted', status: 'accepted' },
+  { label: 'In Courier', href: '/admin/orders?status=in_courier', status: 'in_courier' },
+  { label: 'Hold', href: '/admin/orders?status=hold', status: 'hold' },
+  { label: 'Follow Up', href: '/admin/orders?status=follow_up', status: 'follow_up' },
+  { label: 'Return', href: '/admin/orders?status=return', status: 'return' },
+  { label: 'Cancelled', href: '/admin/orders?status=cancelled', status: 'cancelled' },
+  { label: 'Completed', href: '/admin/orders?status=completed', status: 'completed' },
+  { label: 'Blocked', href: '/admin/orders?status=blocked', status: 'blocked' },
   { label: 'Incomplete Orders', href: '/admin/incomplete-orders', icon: 'incomplete' },
+];
+
+const dashboardItem = { label: 'Dashboard', href: '/admin/dashboard', icon: 'dashboard' };
+
+const Catalogue = [
   { label: 'Products', href: '/admin/products', icon: 'products' },
   { label: 'Categories', href: '/admin/categories', icon: 'categories' },
 ];
@@ -144,7 +174,21 @@ function NavLink({ item, pathname, onClose }) {
 }
 
 function SubLink({ item, pathname, onClose }) {
-  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const searchParams = useSearchParams();
+  // Status links share the /admin/orders URL; the ?status= param decides which
+  // one is active. Normal links keep the plain pathname match — except
+  // "All Orders", which must not light up while a status filter is on screen.
+  const statusParam = searchParams.get('status');
+  const active = item.status
+    ? pathname === '/admin/orders' && statusParam === item.status
+    : (pathname === item.href || pathname.startsWith(`${item.href}/`)) &&
+      !(pathname === '/admin/orders' && statusParam);
+
+  const icon = item.status
+    ? STATUS_ICONS[item.status] ||
+      { bg: 'bg-slate-100', text: 'text-slate-500', darkBg: 'dark:bg-slate-700', darkText: 'dark:text-slate-300' }
+    : null;
+
   return (
     <Link
       href={item.href}
@@ -155,15 +199,25 @@ function SubLink({ item, pathname, onClose }) {
           : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'
       }`}
     >
-      <ColorIcon icon={item.icon} size="sm" />
+      {item.status ? (
+        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded ${icon.bg} ${icon.text} ${icon.darkBg} ${icon.darkText}`}>
+          <span className="h-2 w-2 rounded-full bg-current" />
+        </span>
+      ) : (
+        <ColorIcon icon={item.icon} size="sm" />
+      )}
       {item.label}
     </Link>
   );
 }
 
-function CollapsibleGroup({ label, icon, items, pathname, onClose }) {
-  const active = items.some((i) => pathname === i.href || pathname.startsWith(`${i.href}/`));
-  const [open, setOpen] = useState(active);
+function CollapsibleGroup({ label, icon, items, pathname, onClose, defaultOpen = false }) {
+  const active = items.some(
+    (i) => (i.status ? pathname === '/admin/orders' : pathname === i.href || pathname.startsWith(`${i.href}/`))
+  );
+  // Only the group flagged `defaultOpen` (the Orders group) starts expanded;
+  // others open automatically when one of their pages is on screen.
+  const [open, setOpen] = useState(active || defaultOpen);
 
   useEffect(() => {
     if (active) setOpen(true);
@@ -195,7 +249,7 @@ function CollapsibleGroup({ label, icon, items, pathname, onClose }) {
 
       <div
         className={`overflow-hidden transition-all duration-200 ${
-          open ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+          open ? 'max-h-[32rem] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >
         <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-100 pl-3 dark:border-slate-700">
@@ -207,6 +261,9 @@ function CollapsibleGroup({ label, icon, items, pathname, onClose }) {
     </>
   );
 }
+
+const NAV_SCROLL_CLASS =
+  'admin-nav-scroll flex-1 space-y-1 overflow-y-auto px-3 py-3';
 
 function Divider() {
   return <div className="my-3 border-t border-slate-100 dark:border-slate-800" />;
@@ -231,6 +288,38 @@ export default function AdminSidebar({ sidebarOpen, onClose, pathname, onLogout,
         />
       )}
 
+      <style>{`
+        .admin-nav-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: #cbd5e1 transparent;
+          scroll-behavior: smooth;
+          scrollbar-gutter: stable;
+        }
+        .admin-nav-scroll::-webkit-scrollbar { width: 6px; }
+        .admin-nav-scroll::-webkit-scrollbar-track {
+          background: transparent;
+          margin: 6px 0;
+        }
+        .admin-nav-scroll::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border-radius: 9999px;
+        }
+        .admin-nav-scroll:hover::-webkit-scrollbar-thumb,
+        .admin-nav-scroll::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+        .dark .admin-nav-scroll {
+          scrollbar-color: #475569 transparent;
+        }
+        .dark .admin-nav-scroll::-webkit-scrollbar-thumb {
+          background: #475569;
+        }
+        .dark .admin-nav-scroll:hover::-webkit-scrollbar-thumb,
+        .dark .admin-nav-scroll::-webkit-scrollbar-thumb:hover {
+          background: #64748b;
+        }
+      `}</style>
+
       <aside
         suppressHydrationWarning
         className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-white border-r border-slate-200 shadow-lg transition-transform duration-300 lg:shadow-none lg:translate-x-0 dark:bg-slate-900 dark:border-slate-700 ${
@@ -247,16 +336,24 @@ export default function AdminSidebar({ sidebarOpen, onClose, pathname, onLogout,
           </Link>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
-          {navItems.map((item) => (
-            <NavLink key={item.href} item={item} pathname={pathname} onClose={onClose} />
-          ))}
+        <nav className={NAV_SCROLL_CLASS}>
+          <NavLink item={dashboardItem} pathname={pathname} onClose={onClose} />
+
+          {/* Orders group — the only one expanded by default */}
+          <CollapsibleGroup
+            label="Orders"
+            icon="orders"
+            items={ordersGroupItems}
+            pathname={pathname}
+            onClose={onClose}
+            defaultOpen
+          />
 
           <Divider />
-          <SectionLabel color="bg-rose-400" label="Blog" />
-          {blogSubItems.map((item) => (
-            <NavLink key={item.href} item={item} pathname={pathname} onClose={onClose} />
-          ))}
+          <CollapsibleGroup label="Catalogue" icon="products" items={Catalogue} pathname={pathname} onClose={onClose} />
+
+          <Divider />
+          <CollapsibleGroup label="Blog" icon="pages" items={blogSubItems} pathname={pathname} onClose={onClose} />
 
           <Divider />
           <SectionLabel color="bg-fuchsia-400" label="Reports" />

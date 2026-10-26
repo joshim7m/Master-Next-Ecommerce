@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import AdminSidebar from './partials/AdminSidebar';
 import AdminHeader from './partials/AdminHeader';
@@ -63,13 +63,17 @@ export default function AdminLayout({ children }) {
   return (
     <ThemeProvider>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900" suppressHydrationWarning>
-        <AdminSidebar
-          sidebarOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-          pathname={pathname}
-          onLogout={handleLogout}
-          loggingOut={loggingOut}
-        />
+        {/* The sidebar reads ?status= for its Orders links, so it can bail out
+            to client rendering during static prerender — give it a boundary. */}
+        <Suspense fallback={null}>
+          <AdminSidebar
+            sidebarOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            pathname={pathname}
+            onLogout={handleLogout}
+            loggingOut={loggingOut}
+          />
+        </Suspense>
 
         <AdminHeader
           onMenuToggle={() => setSidebarOpen(true)}

@@ -9,14 +9,22 @@ import ConfirmDialog from '../../../../src/components/ConfirmDialog';
 import CourierBookingModal from '../../../../src/components/admin/CourierBookingModal';
 import CourierStatusBadge from '../../../../src/components/admin/CourierStatusBadge';
 
-const orderStatuses = ['pending', 'processing', 'completed', 'cancelled', 'return', 'incomplete'];
+const orderStatuses = [
+  'pending', 'accepted', 'in_courier', 'hold', 'follow_up', 'processing',
+  'return', 'cancelled', 'completed', 'blocked', 'incomplete',
+];
 
 const orderStatusColors = {
   pending: { bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-400', dot: 'bg-amber-400' },
-  processing: { bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-400', dot: 'bg-blue-500' },
+  accepted: { bg: 'bg-sky-50 dark:bg-sky-900/30', text: 'text-sky-700 dark:text-sky-400', dot: 'bg-sky-500' },
+  in_courier: { bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-400', dot: 'bg-blue-500' },
+  hold: { bg: 'bg-orange-50 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-400', dot: 'bg-orange-500' },
+  follow_up: { bg: 'bg-cyan-50 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-400', dot: 'bg-cyan-500' },
+  processing: { bg: 'bg-indigo-50 dark:bg-indigo-900/30', text: 'text-indigo-700 dark:text-indigo-400', dot: 'bg-indigo-500' },
   completed: { bg: 'bg-emerald-50 dark:bg-emerald-900/30', text: 'text-emerald-700 dark:text-emerald-400', dot: 'bg-emerald-500' },
   cancelled: { bg: 'bg-red-50 dark:bg-red-900/30', text: 'text-red-700 dark:text-red-400', dot: 'bg-red-500' },
   return: { bg: 'bg-purple-50 dark:bg-purple-900/30', text: 'text-purple-700 dark:text-purple-400', dot: 'bg-purple-500' },
+  blocked: { bg: 'bg-rose-50 dark:bg-rose-900/40', text: 'text-rose-700 dark:text-rose-300', dot: 'bg-rose-500' },
   incomplete: { bg: 'bg-slate-100 dark:bg-slate-700/60', text: 'text-slate-600 dark:text-slate-300', dot: 'bg-slate-400' },
 };
 

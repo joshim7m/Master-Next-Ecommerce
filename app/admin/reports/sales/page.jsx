@@ -18,11 +18,21 @@ const orderStatusColors = {
 };
 
 const presets = [
+  { key: 'all', label: 'All' },
   { key: 'today', label: 'Today' },
   { key: 'week', label: 'This Week' },
   { key: 'month', label: 'This Month' },
   { key: 'lastMonth', label: 'Last 1 Month' },
   { key: 'custom', label: 'Custom' },
+];
+
+const reportStatuses = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'processing', label: 'Processing' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'cancelled', label: 'Cancelled' },
+  { key: 'return', label: 'Return' },
+  { key: 'incomplete', label: 'Incomplete' },
 ];
 
 function startOfDay(d) {
@@ -40,6 +50,8 @@ function endOfDay(d) {
 function computeRange(preset, customFrom, customTo) {
   const now = new Date();
   switch (preset) {
+    case 'all':
+      return { from: new Date(0), to: endOfDay(now) };
     case 'today':
       return { from: startOfDay(now), to: endOfDay(now) };
     case 'week': {
@@ -130,11 +142,12 @@ function StatCard({ bg, text, iconPath, label, value }) {
 }
 
 export default function SalesReportPage() {
-  const [orders, setOrders] = useState([]);
+  const [rawOrders, setRawOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [preset, setPreset] = useState('lastMonth');
+  const [preset, setPreset] = useState('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selected, setSelected] = useState(new Set());
   const [page, setPage] = useState(0);
   const [site, setSite] = useState({ name: '', mobile: '' });
@@ -146,6 +159,12 @@ export default function SalesReportPage() {
   const customInvalid =
     preset === 'custom' &&
     (!customFrom || !customTo || new Date(`${customFrom}T00:00:00`) > new Date(`${customTo}T00:00:00`) || (customFrom && customTo && new Date(`${customTo}T00:00:00`) - new Date(`${customFrom}T00:00:00`) > 365 * 86400000));
+
+  // Status filter applies client-side — the report already loads the whole range.
+  const orders = useMemo(
+    () => (statusFilter === 'all' ? rawOrders : rawOrders.filter((o) => o.orderStatus === statusFilter)),
+    [rawOrders, statusFilter]
+  );
 
   useEffect(() => {
     fetch('/api/admin/settings/site')
@@ -161,16 +180,22 @@ export default function SalesReportPage() {
   }, [toast]);
 
   useEffect(() => {
+    // Changing the status filter resets selection and pagination.
+    setSelected(new Set());
+    setPage(0);
+  }, [statusFilter]);
+
+  useEffect(() => {
     if (customInvalid) {
-      setOrders([]);
+      setRawOrders([]);
       setLoading(false);
       return;
     }
     if (!range.from || !range.to) return;
     setLoading(true);
     getOrderReport(range.from.toISOString(), range.to.toISOString())
-      .then((data) => setOrders(data))
-      .catch(() => setOrders([]))
+      .then((data) => setRawOrders(data))
+      .catch(() => setRawOrders([]))
       .finally(() => {
         setLoading(false);
         setSelected(new Set());
@@ -247,11 +272,6 @@ export default function SalesReportPage() {
     }
   };
 
-  const rangeLabel =
-    range.from && range.to
-      ? `${range.from.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} — ${range.to.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
-      : '—';
-
   const dateFmt = (d) =>
     `${new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'numeric', year: '2-digit' })} ${new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}`;
 
@@ -260,9 +280,7 @@ export default function SalesReportPage() {
       <Toast toast={toast} />
 
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Sales Report</h1>
-        <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">Filter orders by date range and export a courier-ready CSV.</p>
-      </div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Sales Report</h1>      </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-5">
         <div className="flex flex-wrap items-center gap-2">
@@ -280,7 +298,19 @@ export default function SalesReportPage() {
               {p.label}
             </button>
           ))}
-          <span className="ml-auto hidden text-xs font-medium text-slate-400 dark:text-slate-500 sm:block">{rangeLabel}</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter by order status"
+            className="ml-auto rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]"
+          >
+            <option value="all">All Status</option>
+            {reportStatuses.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {preset === 'custom' && (
@@ -351,7 +381,9 @@ export default function SalesReportPage() {
               </svg>
             </div>
             <p className="mt-3 text-sm font-medium text-slate-900 dark:text-white">No orders found</p>
-            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">No orders were placed in the selected date range.</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {statusFilter === 'all' ? 'No orders were placed in the selected date range.' : 'No orders with this status in the selected date range.'}
+            </p>
           </div>
         ) : (
           <>
@@ -451,12 +483,7 @@ export default function SalesReportPage() {
       </div>
 
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div>
-          <p className="text-sm font-semibold text-slate-900 dark:text-white">Courier Export (Excel)</p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            Columns: Invoice (product + variant), Name, Address, Phone, Amount, Note, Lot, Contact Name, Contact Number. Phone numbers keep their leading zeros. Cancelled/return/incomplete orders are skipped.
-          </p>
-        </div>
+
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"

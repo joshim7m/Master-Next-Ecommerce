@@ -326,6 +326,9 @@ function resolveOrdersRange(preset, fromKey, toKey, now = new Date()) {
   let end = now;
 
   switch (preset) {
+    case 'all':
+      // Whole available window: the last 31 Bangladesh days.
+      break;
     case 'today':
       start = todayStart;
       break;
@@ -362,7 +365,7 @@ function resolveOrdersRange(preset, fromKey, toKey, now = new Date()) {
  * are not reachable from this list.
  */
 export async function getOrdersPage({
-  preset = 'today',
+  preset = 'all',
   from = null,
   to = null,
   status = 'all',

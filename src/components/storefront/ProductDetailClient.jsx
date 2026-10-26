@@ -25,7 +25,7 @@ export default function ProductDetailClient({ product, related, whatsappNumber }
             slot. It sits outside the sticky wrapper so it neither inherits the
             pinned position nor adds to the height the buy box has to fit in. */}
         <div>
-          <div className="lg:sticky lg:top-28">
+          <div className="lg:top-28">
             <ProductInfo
               product={product}
               selectedVariant={selectedVariant}

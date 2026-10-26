@@ -324,13 +324,16 @@ export default function CheckoutPage() {
             </div>
             <div className="rounded-xl border border-border bg-warm-sand p-4 dark:border-dark-border dark:bg-dark-bg">
               <p className="text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Delivery Area</p>
-              <div className="mt-3 flex flex-col gap-3 sm:flex-row">
+              {/* Two areas per row: grid instead of a flex row, so a longer
+                  configured area list wraps into columns instead of squeezing
+                  every card onto one line. */}
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {deliveryAreas.map((area) => {
                   const checked = form.shippingArea === area.name;
                   return (
                     <label
                       key={area.name}
-                      className={`group relative flex flex-1 cursor-pointer items-center gap-3 overflow-hidden rounded-xl border p-4 transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] hover:shadow-md has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40 ${
+                      className={`group relative flex cursor-pointer items-center gap-3 overflow-hidden rounded-xl border p-4 transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] hover:shadow-md has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40 ${
                         checked
                           ? 'border-primary bg-white shadow-md ring-1 ring-primary/10 dark:bg-dark-card'
                           : 'border-border bg-white/60 hover:border-primary/50 hover:bg-white dark:border-dark-border dark:bg-dark-card/60 dark:hover:bg-dark-card'
