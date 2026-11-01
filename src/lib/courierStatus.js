@@ -1,7 +1,8 @@
 /**
  * Two-way map: courier status → store `Order.orderStatus`, per provider.
  *
- * Store statuses: pending · processing · completed · cancelled · return · incomplete
+ * Store statuses: pending · in_review · in_courier · hold · follow_up ·
+ * processing · completed · cancelled · return · blocked · incomplete
  *
  * Each entry: `{ to }` = the order status to move to, optionally `flag` = a UI
  * flag when nothing changes but the admin should see why ('hold' or
@@ -17,18 +18,19 @@
  *   4. Unknown provider or status → no change + 'unrecognized' flag, so a new
  *      courier can never corrupt orderStatus by surprise.
  *
- * Approval-pending tiers exist because the rider's word is not confirmed yet —
- * the docs are explicit that books must not be settled on them.
+ * Anything still in the courier's hands — in_review, pending, and the
+ * approval-pending tiers (the rider's word is not confirmed yet, so they are
+ * not treated as a final delivery/cancel) — keeps the parcel at `in_courier`.
  */
 const STEADFAST_MAP = {
-  in_review: { to: 'pending' },
-  pending: { to: 'pending' },
+  in_review: { to: 'in_courier' },
+  pending: { to: 'in_courier' },
   hold: { to: null, flag: 'hold' },
 
-  delivered_approval_pending: { to: null },
-  partial_delivered_approval_pending: { to: null },
-  cancelled_approval_pending: { to: null },
-  unknown_approval_pending: { to: null },
+  delivered_approval_pending: { to: 'in_courier' },
+  partial_delivered_approval_pending: { to: 'in_courier' },
+  cancelled_approval_pending: { to: 'in_courier' },
+  unknown_approval_pending: { to: 'in_courier' },
 
   delivered: { to: 'completed' },
   partial_delivered: { to: 'completed' },

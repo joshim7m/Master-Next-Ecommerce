@@ -3,20 +3,20 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getOrderByOrderNo, updateOrderStatus, updateOrderDetails, updateOrderItemQuantity, deleteOrderItem } from '../../../../src/actions/orders';
+import { getOrderByOrderNo, updateOrderStatus, updateOrderDetails, updateOrderItemQuantity, deleteOrderItem, deleteOrder } from '../../../../src/actions/orders';
 import { DEFAULT_DELIVERY_AREAS } from '../../../../src/lib/deliveryAreas';
 import ConfirmDialog from '../../../../src/components/ConfirmDialog';
 import CourierBookingModal from '../../../../src/components/admin/CourierBookingModal';
 import CourierStatusBadge from '../../../../src/components/admin/CourierStatusBadge';
 
 const orderStatuses = [
-  'pending', 'accepted', 'in_courier', 'hold', 'follow_up', 'processing',
+  'pending', 'in_review', 'in_courier', 'hold', 'follow_up', 'processing',
   'return', 'cancelled', 'completed', 'blocked', 'incomplete',
 ];
 
 const orderStatusColors = {
   pending: { bg: 'bg-amber-50 dark:bg-amber-900/30', text: 'text-amber-700 dark:text-amber-400', dot: 'bg-amber-400' },
-  accepted: { bg: 'bg-sky-50 dark:bg-sky-900/30', text: 'text-sky-700 dark:text-sky-400', dot: 'bg-sky-500' },
+  in_review: { bg: 'bg-sky-50 dark:bg-sky-900/30', text: 'text-sky-700 dark:text-sky-400', dot: 'bg-sky-500' },
   in_courier: { bg: 'bg-blue-50 dark:bg-blue-900/30', text: 'text-blue-700 dark:text-blue-400', dot: 'bg-blue-500' },
   hold: { bg: 'bg-orange-50 dark:bg-orange-900/30', text: 'text-orange-700 dark:text-orange-400', dot: 'bg-orange-500' },
   follow_up: { bg: 'bg-cyan-50 dark:bg-cyan-900/30', text: 'text-cyan-700 dark:text-cyan-400', dot: 'bg-cyan-500' },
@@ -48,6 +48,8 @@ export default function OrderDetailPage() {
 
   // Confirmation dialogs
   const [confirmDelete, setConfirmDelete] = useState({ open: false, itemId: null });
+  const [confirmDeleteOrder, setConfirmDeleteOrder] = useState(false);
+  const [deleteOrderLoading, setDeleteOrderLoading] = useState(false);
   const [confirmQuantity, setConfirmQuantity] = useState({ open: false, itemId: null, newQty: null });
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [confirmUnblock, setConfirmUnblock] = useState(false);
@@ -201,6 +203,12 @@ export default function OrderDetailPage() {
   const discountOverLimit = parseFloat(discountInput) > maxDiscount;
   const osColor = orderStatusColors[order.orderStatus] || { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-400', dot: 'bg-slate-400' };
   const canEdit = order.orderStatus !== 'completed';
+  // Mirrors the server guard in deleteOrder — in-courier / blocked never;
+  // completed only once older than 31 days.
+  const canDelete =
+    !['in_courier', 'blocked'].includes(order.orderStatus) &&
+    (order.orderStatus !== 'completed' ||
+      new Date(order.createdAt).getTime() < Date.now() - 31 * 24 * 60 * 60 * 1000);
   // Money is frozen once the order is delivered or cancelled.
   const moneyLocked = order.orderStatus === 'completed' || order.orderStatus === 'cancelled';
 
@@ -252,6 +260,18 @@ export default function OrderDetailPage() {
       alert(e.message || 'Failed to remove item');
     }
     setSaving(false);
+  };
+
+  /** Delete this order after the confirmation dialog; the row is guarded server-side too. */
+  const handleDeleteOrder = async () => {
+    setDeleteOrderLoading(true);
+    try {
+      await deleteOrder(order.id);
+      router.push('/admin/orders');
+    } catch (e) {
+      setDeleteOrderLoading(false);
+      alert(e?.message?.replace(/^Error: /, '') || 'Failed to delete order');
+    }
   };
 
   const startEditCustomer = () => {
@@ -362,6 +382,18 @@ export default function OrderDetailPage() {
             </svg>
             Download Invoice
           </Link>
+          {canDelete && (
+            <button
+              onClick={() => setConfirmDeleteOrder(true)}
+              disabled={deleteOrderLoading}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed dark:border-red-900/50 dark:bg-slate-800 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete Order
+            </button>
+          )}
           <span className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold ${osColor.bg} ${osColor.text}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${osColor.dot}`} />
             {order.orderStatus}
@@ -1004,6 +1036,17 @@ export default function OrderDetailPage() {
           handleBlock();
         }}
         onCancel={() => setConfirmBlock(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmDeleteOrder}
+        title="Delete Order"
+        message={`Permanently delete order #${order?.orderNo} and all its items?\n\nCustomer: ${order?.details?.customerName || order?.user?.name || '—'}\nPhone: ${order?.details?.phoneNumber || '—'}\nTotal: ৳${Number(order?.total || 0).toLocaleString()}\nPlaced: ${order?.createdAt ? new Date(order.createdAt).toLocaleDateString('en-GB', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric' }) : '—'}\n\nThis cannot be undone.`}
+        confirmLabel={deleteOrderLoading ? 'Deleting…' : 'Delete'}
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteOrder}
+        onCancel={() => { if (!deleteOrderLoading) setConfirmDeleteOrder(false); }}
       />
 
       <ConfirmDialog

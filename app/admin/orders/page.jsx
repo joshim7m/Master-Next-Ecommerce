@@ -3,17 +3,18 @@
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { getOrdersPage, getCustomerOrderStats, updateOrderStatus } from '../../../src/actions/orders';
+import { getOrdersPage, getCustomerOrderStats, updateOrderStatus, deleteOrder } from '../../../src/actions/orders';
 import InvoicePreviewModal from '../../../src/components/admin/InvoicePreviewModal';
+import ConfirmDialog from '../../../src/components/ConfirmDialog';
 
 const orderStatuses = [
-  'pending', 'accepted', 'in_courier', 'hold', 'follow_up', 'processing',
+  'pending', 'in_review', 'in_courier', 'hold', 'follow_up', 'processing',
   'return', 'cancelled', 'completed', 'blocked', 'incomplete',
 ];
 
 const orderStatusColors = {
   pending: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  accepted: 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  in_review: 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
   in_courier: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   hold: 'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
   follow_up: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400',
@@ -49,6 +50,17 @@ const PRESET_RANGE_LABELS = {
   yesterday: 'yesterday',
   last7: 'last 7 days',
 };
+
+/** Matches the server guard in deleteOrder — in-courier / blocked never; completed only after 31 days. */
+const UNDELETABLE = new Set(['in_courier', 'blocked']);
+const COMPLETED_DELETE_AGE_DAYS = 31;
+function isOrderDeletable(order) {
+  if (UNDELETABLE.has(order.orderStatus)) return false;
+  if (order.orderStatus !== 'completed') return true;
+  // Completed orders become deletable once they are older than 31 days.
+  const cutoff = Date.now() - COMPLETED_DELETE_AGE_DAYS * DAY_MS;
+  return new Date(order.createdAt).getTime() < cutoff;
+}
 
 const CHIP_BASE = 'rounded-full border px-3.5 py-1.5 text-xs font-semibold transition';
 const CHIP_ON =
@@ -260,6 +272,9 @@ function OrdersList() {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceError, setInvoiceError] = useState(null);
 
+  const [confirmDeleteOrder, setConfirmDeleteOrder] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
   const minDate = bdKeyDaysAgo(30);
   const maxDate = bdDateKey();
   const customInvalid = Boolean(preset === 'custom' && customFrom && customTo && customFrom > customTo);
@@ -396,6 +411,24 @@ function OrdersList() {
       await updateOrderStatus(id, { [field]: value });
       setRefreshKey((k) => k + 1);
     } catch {}
+  };
+
+  /** Delete from the list after the confirmation dialog — guarded server-side by deleteOrder. */
+  const handleDeleteOrder = (order) => {
+    if (!isOrderDeletable(order) || deleting) return;
+    setDeleting(true);
+    deleteOrder(order.id)
+      .then(() => {
+        setOrders((list) => list.filter((o) => o.id !== order.id));
+        setTotal((t) => Math.max(0, t - 1));
+      })
+      .catch((e) => {
+        alert(e?.message?.replace(/^Error: /, '') || 'Failed to delete order.');
+      })
+      .finally(() => {
+        setDeleting(false);
+        setConfirmDeleteOrder(null);
+      });
   };
 
   /**
@@ -608,6 +641,18 @@ function OrdersList() {
                           <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                       </button>
+                      {isOrderDeletable(order) && (
+                        <button
+                          onClick={() => setConfirmDeleteOrder(order)}
+                          disabled={deleting}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed dark:text-slate-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                          title="Delete order"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -638,6 +683,19 @@ function OrdersList() {
           loading={invoiceLoading}
           error={invoiceError}
           onClose={() => setInvoiceOrder(null)}
+        />
+      )}
+
+      {confirmDeleteOrder && (
+        <ConfirmDialog
+          open
+          title="Delete Order"
+          message={`Permanently delete order #${confirmDeleteOrder.orderNo} and all its items?\n\nCustomer: ${confirmDeleteOrder.details?.customerName || confirmDeleteOrder.user?.name || '—'}\nPhone: ${confirmDeleteOrder.details?.phoneNumber || '—'}\nTotal: ৳${Number(confirmDeleteOrder.total).toLocaleString()}\nPlaced: ${formatBdDate(confirmDeleteOrder.createdAt)}\n\nThis cannot be undone.`}
+          confirmLabel={deleting ? 'Deleting…' : 'Delete'}
+          cancelLabel="Cancel"
+          variant="danger"
+          onConfirm={() => handleDeleteOrder(confirmDeleteOrder)}
+          onCancel={() => { if (!deleting) setConfirmDeleteOrder(null); }}
         />
       )}
     </section>

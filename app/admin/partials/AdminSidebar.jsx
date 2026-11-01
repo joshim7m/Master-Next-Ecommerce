@@ -56,7 +56,7 @@ const iconColors = {
 
 const STATUS_ICONS = {
   pending: { bg: 'bg-amber-100', text: 'text-amber-600', darkBg: 'dark:bg-amber-900/30', darkText: 'dark:text-amber-400' },
-  accepted: { bg: 'bg-sky-100', text: 'text-sky-600', darkBg: 'dark:bg-sky-900/30', darkText: 'dark:text-sky-400' },
+  in_review: { bg: 'bg-sky-100', text: 'text-sky-600', darkBg: 'dark:bg-sky-900/30', darkText: 'dark:text-sky-400' },
   in_courier: { bg: 'bg-blue-100', text: 'text-blue-600', darkBg: 'dark:bg-blue-900/30', darkText: 'dark:text-blue-400' },
   hold: { bg: 'bg-orange-100', text: 'text-orange-600', darkBg: 'dark:bg-orange-900/30', darkText: 'dark:text-orange-400' },
   follow_up: { bg: 'bg-cyan-100', text: 'text-cyan-600', darkBg: 'dark:bg-cyan-900/30', darkText: 'dark:text-cyan-400' },
@@ -73,7 +73,7 @@ const STATUS_ICONS = {
 const ordersGroupItems = [
   { label: 'All Orders', href: '/admin/orders', icon: 'orders' },
   { label: 'Pending', href: '/admin/orders?status=pending', status: 'pending' },
-  { label: 'Accepted', href: '/admin/orders?status=accepted', status: 'accepted' },
+  { label: 'In Review', href: '/admin/orders?status=in_review', status: 'in_review' },
   { label: 'In Courier', href: '/admin/orders?status=in_courier', status: 'in_courier' },
   { label: 'Hold', href: '/admin/orders?status=hold', status: 'hold' },
   { label: 'Follow Up', href: '/admin/orders?status=follow_up', status: 'follow_up' },
@@ -98,6 +98,7 @@ const blogSubItems = [
 ];
 
 const reportsSubItems = [
+  { label: 'Customers', href: '/admin/reports/customers', icon: 'user' },
   { label: 'Sales Report', href: '/admin/reports/sales', icon: 'reports' },
 ];
 

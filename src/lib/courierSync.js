@@ -1,5 +1,6 @@
 import prisma from './prisma';
 import { mapCourierToOrderStatus } from './courierStatus';
+import { captureCompletedCustomer } from './completedCustomers';
 
 /**
  * Shared status-application logic — the one place courier statuses are written
@@ -60,6 +61,11 @@ export async function applyCourierStatus(booking, status, { idempotencyKey = nul
     });
     orderStatus = mapping.orderStatus;
     changed = true;
+    // A courier event (delivery) completing the order snapshots the customer
+    // for the Customers report, same as a manual status change would.
+    if (mapping.orderStatus === 'completed') {
+      await captureCompletedCustomer(booking.orderId).catch(() => {});
+    }
   }
 
   return {

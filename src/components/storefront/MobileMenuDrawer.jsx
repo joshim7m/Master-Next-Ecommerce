@@ -3,12 +3,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { X, ChevronRight, TrendingUp, Sparkles, BadgePercent, ShoppingBag, Heart, Phone } from 'lucide-react';
+import { X, ChevronRight, TrendingUp, Sparkles, BadgePercent, ShoppingBag, Search, Heart, Phone } from 'lucide-react';
 
 const MENU_LINKS = [
   { href: '/new-arrivals', label: 'New Arrivals', icon: Sparkles },
   { href: '/categories', label: 'Collections', icon: ShoppingBag },
   { href: '/hot-sales', label: 'Hot Sales', icon: BadgePercent },
+  { href: '/track-order', label: 'Track Order', icon: Search },
 ];
 
 export default function MobileMenuDrawer({

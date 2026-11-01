@@ -15,6 +15,7 @@ const pageTitles = {
   '/admin/orders': 'Orders',
   '/admin/orders/': 'Order Detail',
   '/admin/incomplete-orders': 'Incomplete Orders',
+  '/admin/reports/customers': 'Customers',
   '/admin/reports/sales': 'Sales Report',
   '/admin/users': 'All Users',
   '/admin/settings/home': 'Home Setting',

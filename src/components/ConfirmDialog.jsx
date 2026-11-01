@@ -28,7 +28,7 @@ export default function ConfirmDialog({ open, title, message, confirmLabel, canc
       <div className="fixed inset-0 bg-black/40" onClick={onCancel} />
       <div className="relative z-10 w-full max-w-sm rounded-xl bg-white p-6 shadow-xl animate-fade-in" role="dialog" aria-modal="true">
         <h3 className="text-lg font-semibold text-slate-900">{title || 'Confirm'}</h3>
-        <p className="mt-2 text-sm text-slate-600">{message || 'Are you sure?'}</p>
+        <p className="mt-2 whitespace-pre-line text-sm text-slate-600">{message || 'Are you sure?'}</p>
         <div className="mt-5 flex justify-end gap-3">
           <button
             type="button"

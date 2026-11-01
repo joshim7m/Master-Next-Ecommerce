@@ -29,6 +29,7 @@ const NAV_LINKS = [
   { href: '/new-arrivals', label: 'New Arrivals' },
   { href: '/categories', label: 'Collections' },
   { href: '/hot-sales', label: 'Hot Sales' },
+  { href: '/track-order', label: 'Track Order' },
 ];
 
 /** Shared by every desktop nav item so the dropdown trigger is styled

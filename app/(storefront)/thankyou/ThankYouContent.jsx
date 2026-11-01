@@ -153,6 +153,16 @@ export default function ThankYouContent({ siteName = 'Chahida Ghor', mobile = ''
           <span className="material-symbols-outlined text-[20px]">storefront</span>
           Continue Shopping
         </Link>
+
+        {orderNo ? (
+          <Link
+            href={`/track-order?orderNo=${encodeURIComponent(orderNo)}`}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-border px-6 py-3.5 text-sm font-semibold text-on-surface transition hover:border-primary hover:text-primary active:scale-[0.98] dark:border-dark-border dark:text-dark-text dark:hover:border-primary dark:hover:text-primary"
+          >
+            <span className="material-symbols-outlined text-[20px]">location_searching</span>
+            Track Your Order
+          </Link>
+        ) : null}
       </div>
     </div>
   );

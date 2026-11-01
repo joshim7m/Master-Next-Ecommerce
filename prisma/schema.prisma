@@ -308,6 +308,25 @@ model OrderItem {
   @@index([variantId])
 }
 
+/// Snapshot of customer info captured at the moment an order is completed —
+/// either manually by the admin or by a courier webhook (delivered). Survives
+/// the order itself being deleted later, so the Customers report keeps its
+/// history. `orderId` is unique: capture happens at most once per order.
+model CompletedCustomer {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  customerName    String?
+  phoneNumber     String?
+  shippingAddress String
+  productName     String // first item's title, truncated to 60 chars
+  orderDate       DateTime // the order's placement date
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([phoneNumber])
+  @@index([orderDate])
+}
+
 model PromoBanner {
   id          String  @id @default(cuid())
   image       String?

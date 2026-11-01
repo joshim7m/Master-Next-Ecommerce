@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import prisma from '../lib/prisma';
 import { deleteIncompleteOrders } from '../lib/incompleteCheckout';
+import { captureCompletedCustomer } from '../lib/completedCustomers';
 
 function serialize(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -482,11 +483,55 @@ export async function deleteIncompleteOrder(id) {
   return deleted;
 }
 
+/**
+ * Hard-deletes one order and all of its child rows in a single transaction.
+ * `OrderDetails` / `OrderItem` reference the order with RESTRICT foreign keys
+ * (same constraint `deleteIncompleteOrders` works around), so children must go
+ * first. `CourierBooking` cascades automatically.
+ *
+ * Safety guard: `completed` orders are deletable once older than 31 Bangladesh
+ * days; `in_courier` and `blocked` orders are the business record for sales
+ * reports, courier tracking and fraud evidence, so they can never be deleted —
+ * resolve them first instead.
+ */
+export async function deleteOrder(id) {
+  const order = await prisma.order.findUnique({
+    where: { id },
+    select: { id: true, orderNo: true, orderStatus: true, createdAt: true },
+  });
+  if (!order) throw new Error('Order not found');
+  if (order.orderStatus === 'in_courier' || order.orderStatus === 'blocked') {
+    throw new Error('In-courier and blocked orders cannot be deleted.');
+  }
+  if (order.orderStatus === 'completed') {
+    // Completed orders age out of the protection window after 31 Bangladesh
+    // days — count whole BD days, not raw UTC hours, so a completed order
+    // placed this morning is still protected at any hour.
+    const cutoff = bdMidnightUtc(new Date()) - 31 * 24 * 60 * 60 * 1000;
+    if (new Date(order.createdAt).getTime() >= cutoff) {
+      throw new Error('Completed orders can only be deleted after 31 days.');
+    }
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.orderItem.deleteMany({ where: { orderId: id } });
+    await tx.orderDetails.deleteMany({ where: { orderId: id } });
+    await tx.order.delete({ where: { id } });
+  });
+  revalidatePath('/admin/orders');
+  revalidatePath('/admin/incomplete-orders');
+  return serialize(order);
+}
+
 export async function updateOrderStatus(id, data) {
   const order = await prisma.order.update({
     where: { id },
     data,
   });
+  // Completing an order snapshots the customer for the Customers report —
+  // regardless of which path (manual or courier webhook) did it.
+  if (order.orderStatus === 'completed') {
+    await captureCompletedCustomer(order.id).catch(() => {});
+  }
   revalidatePath('/admin/orders');
   return serialize(order);
 }
@@ -587,4 +632,55 @@ export async function updateOrderDetails(orderId, data) {
   }
   revalidatePath('/admin/orders');
   return serialize(details);
+}
+
+const COMPLETED_CUSTOMERS_PAGE_SIZE = 20;
+
+/**
+ * One page of the /admin/reports/customers table — snapshots written when an
+ * order was completed (manually or by courier), searchable by name or phone,
+ * newest order first.
+ */
+export async function getCompletedCustomers({ page = 1, search = '' } = {}) {
+  const q = String(search || '').trim();
+  const pageNo = Math.max(1, Number(page) || 1);
+  const where = q
+    ? {
+        OR: [
+          { customerName: { contains: q, mode: 'insensitive' } },
+          { phoneNumber: { contains: q, mode: 'insensitive' } },
+        ],
+      }
+    : {};
+
+  const total = await prisma.completedCustomer.count({ where });
+  const rows = await prisma.completedCustomer.findMany({
+    where,
+    orderBy: { orderDate: 'desc' },
+    skip: (pageNo - 1) * COMPLETED_CUSTOMERS_PAGE_SIZE,
+    take: COMPLETED_CUSTOMERS_PAGE_SIZE,
+  });
+
+  return serialize({
+    rows,
+    page: pageNo,
+    totalPages: Math.max(1, Math.ceil(total / COMPLETED_CUSTOMERS_PAGE_SIZE)),
+    pageSize: COMPLETED_CUSTOMERS_PAGE_SIZE,
+    total,
+  });
+}
+
+/**
+ * Remove one Customers-report snapshot row. This is report housekeeping only —
+ * it deletes the `CompletedCustomer` row, never the order or its items.
+ */
+export async function deleteCompletedCustomer(rowId) {
+  const row = await prisma.completedCustomer.findUnique({
+    where: { id: rowId },
+    select: { id: true, customerName: true },
+  });
+  if (!row) throw new Error('Customer record not found');
+  await prisma.completedCustomer.delete({ where: { id: rowId } });
+  revalidatePath('/admin/reports/customers');
+  return serialize(row);
 }
