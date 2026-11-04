@@ -86,11 +86,11 @@ export default async function StorefrontLayout({ children }) {
       where: { isActive: true },
       orderBy: { order: 'asc' },
     }).catch(() => []),
-    // Only the four fields the mega-menu renders, so the whole tree is cheap
-    // to serialise into the client Header on every storefront page.
+    // Only the fields the mega-menu renders plus the sort key, so the whole
+    // tree is cheap to serialise into the client Header on every storefront page.
     prisma.category
       .findMany({
-        select: { id: true, name: true, slug: true, parentId: true },
+        select: { id: true, name: true, slug: true, parentId: true, sortOrder: true },
         orderBy: CATEGORY_ORDER_BY,
       })
       .catch(() => []),

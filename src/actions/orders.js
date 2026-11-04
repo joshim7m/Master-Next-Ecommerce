@@ -57,24 +57,81 @@ export async function getRecentOrders(limit = 5) {
   return serialize(orders);
 }
 
-export async function getDashboardStats() {
-  const todayStart = bdMidnightUtc(new Date());
-  const [todayOrders, pendingOrders, incompleteOrders, revenueResult] = await Promise.all([
+const DASHBOARD_EXCLUDED_STATUSES = ['cancelled', 'incomplete'];
+
+/**
+ * Date window for a dashboard period (Bangladesh calendar days):
+ * `all` · `today` · `yesterday` · `week` (last 7 BD days incl. today) ·
+ * `month` (from the 1st of the current BD month). Returns the `createdAt`
+ * filter fragment — `{}` for all.
+ */
+function dashboardRangeFilter(range) {
+  const now = new Date();
+  let since = null;
+  let until = null;
+  switch (range) {
+    case 'today':
+      since = bdMidnightUtc(now);
+      break;
+    case 'yesterday':
+      since = bdMidnightUtc(new Date(now.getTime() - DAY_MS));
+      until = bdMidnightUtc(now);
+      break;
+    case 'week':
+      since = bdMidnightUtc(new Date(now.getTime() - 6 * DAY_MS));
+      break;
+    case 'month': {
+      const p = bdParts(now);
+      since = new Date(Date.UTC(p.year, p.month, 1) - BD_OFFSET_MS);
+      break;
+    }
+    default:
+      break;
+  }
+  if (!since && !until) return {};
+  return {
+    createdAt: {
+      ...(since ? { gte: since } : {}),
+      ...(until ? { lt: until } : {}),
+    },
+  };
+}
+
+export async function getDashboardStats(range = 'all') {
+  const dateFilter = dashboardRangeFilter(String(range || 'all'));
+  const [todayOrders, grouped, totals, delivery] = await Promise.all([
     prisma.order.count({
-      where: { createdAt: { gte: todayStart }, orderStatus: { not: 'incomplete' } },
+      where: { createdAt: { gte: bdMidnightUtc(new Date()) }, orderStatus: { not: 'incomplete' } },
     }),
-    prisma.order.count({ where: { orderStatus: 'pending' } }),
-    prisma.order.count({ where: { orderStatus: 'incomplete' } }),
+    // One query gives a count for every status that actually has rows — the
+    // dashboard derives each status tile from this (missing keys mean 0).
+    prisma.order.groupBy({
+      by: ['orderStatus'],
+      _count: { _all: true },
+      where: dateFilter,
+    }),
     prisma.order.aggregate({
       _sum: { total: true },
-      where: { orderStatus: { notIn: ['cancelled', 'incomplete'] } },
+      where: { orderStatus: { notIn: DASHBOARD_EXCLUDED_STATUSES }, ...dateFilter },
+    }),
+    // Sold value excludes delivery charge: `total` is subtotal + delivery
+    // charge − discount, so total − deliveryCharge is exactly the net product
+    // money. Summed over the same orders as the revenue sum.
+    prisma.orderDetails.aggregate({
+      _sum: { deliveryCharge: true },
+      where: { order: { ...dateFilter, orderStatus: { notIn: DASHBOARD_EXCLUDED_STATUSES } } },
     }),
   ]);
+  const counts = {};
+  for (const g of grouped) {
+    counts[g.orderStatus] = g._count._all;
+  }
+  const sumTotal = Number(totals._sum.total ?? 0);
+  const sumDelivery = Number(delivery._sum.deliveryCharge ?? 0);
   return serialize({
     todayOrders,
-    pendingOrders,
-    incompleteOrders,
-    revenue: revenueResult._sum.total ? Number(revenueResult._sum.total) : 0,
+    statusCounts: counts,
+    soldValue: Math.max(0, sumTotal - sumDelivery),
   });
 }
 

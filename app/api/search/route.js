@@ -9,10 +9,15 @@ export async function GET(request) {
     return NextResponse.json([]);
   }
 
+  const term = q.trim();
+
   const products = await prisma.product.findMany({
     where: {
       status: 'publish',
-      title: { contains: q.trim(), mode: 'insensitive' },
+      OR: [
+        { title: { contains: term, mode: 'insensitive' } },
+        { sku: { contains: term, mode: 'insensitive' } },
+      ],
     },
     include: { images: true },
     take: 8,
@@ -23,6 +28,7 @@ export async function GET(request) {
     id: p.id,
     title: p.title,
     slug: p.slug,
+    sku: p.sku,
     price: Number(p.sale_price || p.unite_price),
     originalPrice: p.sale_price ? Number(p.unite_price) : null,
     image: p.images?.[0]?.image_path || null,

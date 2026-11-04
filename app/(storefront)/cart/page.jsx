@@ -1,15 +1,16 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { loadCart, updateCartItem, removeCartItem } from '../../../src/lib/cartStorage';
-import { pushDataLayer } from '../../../src/lib/gtm';
+import { pushEcommerce } from '../../../src/lib/gtm';
 import FrequentlyBoughtTogether from '../../../src/components/storefront/FrequentlyBoughtTogether';
 
 export default function CartPage() {
   const [cart, setCart] = useState([]);
   const [hydrated, setHydrated] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const viewedRef = useRef(false);
 
   useEffect(() => {
     setCart(loadCart());
@@ -23,20 +24,9 @@ export default function CartPage() {
   }, []);
 
   useEffect(() => {
-    if (hydrated && cart.length > 0) {
-      pushDataLayer('view_cart', {
-        ecommerce: {
-          items: cart.map((item) => ({
-            item_id: item.sku,
-            item_name: item.title,
-            price: Number(item.price ?? 0),
-            item_variant: item.variantName,
-            quantity: item.quantity,
-          })),
-          value: cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0),
-          currency: 'BDT',
-        },
-      });
+    if (hydrated && cart.length > 0 && !viewedRef.current) {
+      viewedRef.current = true;
+      pushEcommerce('view_cart', { items: cart });
     }
   }, [hydrated]);
 
@@ -49,6 +39,7 @@ export default function CartPage() {
     const newQty = item.quantity + delta;
     if (newQty <= 0) {
       removeCartItem(index);
+      pushEcommerce('remove_from_cart', { items: [item] });
     } else {
       updateCartItem(index, newQty);
     }
@@ -58,6 +49,7 @@ export default function CartPage() {
 
   const handleRemove = (index) => {
     removeCartItem(index);
+    pushEcommerce('remove_from_cart', { items: [cart[index]] });
     setCart(loadCart());
     setRefresh((v) => v + 1);
   };

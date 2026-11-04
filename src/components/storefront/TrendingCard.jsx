@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { addToCart, productToCartItem } from '../../lib/cartStorage';
 import { toggleWishlist, loadWishlist } from '../../lib/wishlistStorage';
-import { pushDataLayer } from '../../lib/gtm';
+import { pushEcommerce } from '../../lib/gtm';
 
 export default function TrendingCard({ product, index = 0 }) {
   const router = useRouter();
@@ -54,16 +54,14 @@ export default function TrendingCard({ product, index = 0 }) {
   const addItem = useCallback(() => {
     addToCart(productToCartItem(product));
 
-    pushDataLayer('add_to_cart', {
-      ecommerce: {
-        items: [{
-          item_id: product.sku,
-          item_name: product.title,
-          price: Number(price),
-          item_variant: variantName,
-          quantity: 1,
-        }],
-      },
+    pushEcommerce('add_to_cart', {
+      items: [{
+        sku: product.sku,
+        title: product.title,
+        price: Number(price),
+        item_variant: variantName,
+        quantity: 1,
+      }],
     });
   }, [product, price, variantName]);
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadCart, clearCart } from '../../../src/lib/cartStorage';
-import { pushDataLayer } from '../../../src/lib/gtm';
+import { pushEcommerce, buildEcommerce } from '../../../src/lib/gtm';
 import { DEFAULT_DELIVERY_AREAS, chargeForArea } from '../../../src/lib/deliveryAreas';
 import useDeviceFingerprint from '../../../src/hooks/useDeviceFingerprint';
 import FrequentlyBoughtTogether from '../../../src/components/storefront/FrequentlyBoughtTogether';
@@ -112,22 +112,15 @@ export default function CheckoutPage() {
   }, []);
 
   useEffect(() => {
-    if (hydrated && cart.length > 0) {
+    // StrictMode double-invokes the mount effect in dev; fire once per visit.
+    if (hydrated && cart.length > 0 && !beginCheckoutRef.current) {
+      beginCheckoutRef.current = true;
       const delivery = chargeForArea(deliveryAreas, form.shippingArea);
       const sub = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
-      pushDataLayer('begin_checkout', {
-        ecommerce: {
-          items: cart.map((item) => ({
-            item_id: item.sku,
-            item_name: item.title,
-            price: Number(item.price ?? 0),
-            item_variant: item.variantName,
-            quantity: item.quantity,
-          })),
-          value: sub + delivery,
-          currency: 'BDT',
-          shipping: delivery,
-        },
+      pushEcommerce('begin_checkout', {
+        items: cart,
+        value: sub + delivery,
+        shipping: delivery,
       });
     }
   }, [hydrated]);
@@ -136,6 +129,7 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const beginCheckoutRef = useRef(false);
 
   const draftOrderNoRef = useRef(null);
   const lastDraftPayloadRef = useRef('');
@@ -231,6 +225,18 @@ export default function CheckoutPage() {
       return;
     }
 
+    const delivery = chargeForArea(deliveryAreas, form.shippingArea);
+    const sub = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
+
+    /* COD-only store: passing validation and confirming the order is when the
+       customer's payment method (Cash on Delivery) is locked in. */
+    pushEcommerce('add_payment_info', {
+      items: cart,
+      value: sub + delivery,
+      shipping: delivery,
+      payment_type: 'Cash on Delivery',
+    });
+
     setSubmitting(true);
     try {
       const res = await fetch('/api/checkout', {
@@ -250,21 +256,15 @@ export default function CheckoutPage() {
       lastDraftPayloadRef.current = '';
       sessionStorage.removeItem(DRAFT_KEY);
 
-      const delivery = chargeForArea(deliveryAreas, form.shippingArea);
-      const sub = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
-      sessionStorage.setItem('gtm_purchase', JSON.stringify({
-        transaction_id: data.orderNo,
+      sessionStorage.setItem('gtm_purchase', JSON.stringify(buildEcommerce({
+        items: cart,
         value: Number(data.total),
-        currency: 'BDT',
         shipping: delivery,
-        items: cart.map((item) => ({
-          item_id: item.sku,
-          item_name: item.title,
-          price: Number(item.price ?? 0),
-          item_variant: item.variantName,
-          quantity: item.quantity,
-        })),
-      }));
+        // GA4 purchase id, and doubles as the Meta Event ID for deduplication
+        // between browser and Conversions API events in Events Manager.
+        transaction_id: data.orderNo,
+        event_id: data.orderNo,
+      })));
 
       clearCart();
       router.push(`/thankyou?orderNo=${data.orderNo}`);

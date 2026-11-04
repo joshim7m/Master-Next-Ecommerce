@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Check, Plus, X } from 'lucide-react';
 import { addToCart, loadCart, productToCartItem, withoutAlreadyInCart } from '../../lib/cartStorage';
-import { pushDataLayer } from '../../lib/gtm';
+import { pushEcommerce } from '../../lib/gtm';
 
 /**
  * "Frequently Bought Together" cross-sell bundle.
@@ -542,18 +542,7 @@ export default function FrequentlyBoughtTogether({
   );
 
   const trackAdd = useCallback((items) => {
-    pushDataLayer('add_to_cart', {
-      ecommerce: {
-        items: items.map((item) => ({
-          item_id: item.sku,
-          item_name: item.title,
-          price: Number(item.price ?? 0),
-          item_variant: item.variantName,
-          quantity: item.quantity,
-        })),
-        currency: 'BDT',
-      },
-    });
+    pushEcommerce('add_to_cart', { items });
   }, []);
 
   const commit = useCallback(
@@ -670,18 +659,7 @@ export function PdpBundle({ product, selectedVariant, quantity = 1 }) {
       items.forEach((item) => addToCart(item));
       setAddedIds((prev) => [...new Set([...prev, ...addOnProducts.map((p) => p.id)])]);
 
-      pushDataLayer('add_to_cart', {
-        ecommerce: {
-          items: items.map((item) => ({
-            item_id: item.sku,
-            item_name: item.title,
-            price: Number(item.price ?? 0),
-            item_variant: item.variantName,
-            quantity: item.quantity,
-          })),
-          currency: 'BDT',
-        },
-      });
+      pushEcommerce('add_to_cart', { items });
     },
     [product, quantity, selectedVariant]
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { getCategories, createCategory, updateCategory, deleteCategory } from '../../../src/actions/categories';
+import { buildCategoryTree } from '../../../src/lib/categoryTree';
 
 const PER_PAGE = 10;
 
@@ -18,8 +19,33 @@ export default function AdminCategoriesPage() {
     getCategories().then((data) => { setCategories(data); setLoading(false); });
   }, []);
 
+  // Tree-ordered display list: each parent row is followed immediately by its
+  // subcategories; both levels are sorted by sortOrder then name (the sort and
+  // the orphan handling live in buildCategoryTree, so an inline order edit
+  // still moves the row the moment the list is refetched). We map back to the
+  // raw category objects so image/_count/parent stay available on every row.
+  const displayList = useMemo(() => {
+    const byId = new Map(categories.map((c) => [c.id, c]));
+    const orderedIds = [];
+    for (const root of buildCategoryTree(categories)) {
+      orderedIds.push(root.id);
+      for (const child of root.children) orderedIds.push(child.id);
+    }
+    return orderedIds.map((id) => byId.get(id)).filter(Boolean);
+  }, [categories]);
+
+  // How many subcategories each top-level category has — shown as a badge on
+  // the parent row so the tree shape is visible at a glance.
+  const subCountOf = useMemo(() => {
+    const map = new Map();
+    for (const c of categories) {
+      if (c.parentId) map.set(c.parentId, (map.get(c.parentId) || 0) + 1);
+    }
+    return map;
+  }, [categories]);
+
   const filtered = useMemo(() => {
-    let list = [...categories];
+    let list = displayList;
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter((c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q));
@@ -28,12 +54,8 @@ export default function AdminCategoriesPage() {
       if (parentFilter === 'top') list = list.filter((c) => !c.parentId);
       else list = list.filter((c) => c.parentId === parentFilter);
     }
-    // Sorted here rather than trusting the server order, so an inline order
-    // edit moves the row the moment it is saved.
-    return list.sort(
-      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
-    );
-  }, [categories, search, parentFilter]);
+    return list;
+  }, [displayList, search, parentFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const safePage = Math.min(page, totalPages - 1);
@@ -240,19 +262,37 @@ export default function AdminCategoriesPage() {
             {paginated.map((cat) => (
               <tr key={cat.id} className="hover:bg-slate-50/50 transition-colors dark:hover:bg-slate-700/30">
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    {cat.image ? (
-                      <img src={cat.image} alt={cat.name} className="h-10 w-10 rounded-lg border border-slate-200 object-cover dark:border-slate-700" />
-                    ) : (
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-400 dark:bg-slate-700 dark:text-slate-500">
-                        {cat.name.charAt(0).toUpperCase()}
+                  {(() => {
+                    const isChild = Boolean(cat.parentId);
+                    const subCount = isChild ? 0 : (subCountOf.get(cat.id) || 0);
+                    return (
+                      <div className={`flex items-center gap-3 ${isChild ? 'pl-3' : ''}`}>
+                        {isChild ? (
+                          <span aria-hidden="true" className="w-4 shrink-0 select-none text-center text-sm text-slate-300 dark:text-slate-600">↳</span>
+                        ) : null}
+                        {cat.image ? (
+                          <img
+                            src={cat.image}
+                            alt={cat.name}
+                            className={isChild ? 'h-8 w-8 rounded-lg border border-slate-200 object-cover dark:border-slate-700' : 'h-10 w-10 rounded-lg border border-slate-200 object-cover dark:border-slate-700'}
+                          />
+                        ) : (
+                          <div className={`flex shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-semibold text-slate-400 ${isChild ? 'h-8 w-8 text-xs dark:bg-slate-700 dark:text-slate-500' : 'h-10 w-10 dark:bg-slate-700 dark:text-slate-500'}`}>
+                            {cat.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <span className={`block truncate ${isChild ? 'text-sm text-slate-600 dark:text-slate-300' : 'font-medium text-slate-900 dark:text-white'}`}>{cat.name}</span>
+                          <span className="text-xs text-slate-400 dark:text-slate-400">({cat._count?.products ?? 0})</span>
+                          {subCount > 0 && (
+                            <span className="ml-2 text-[11px] font-medium text-[#2f0f6b]/70 dark:text-[#a78bfa]/70">
+                              {subCount} {subCount === 1 ? 'subcategory' : 'subcategories'}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    <div className="min-w-0">
-                      <span className="block truncate font-medium text-slate-900 dark:text-white">{cat.name}</span>
-                      <span className="text-xs text-slate-400 dark:text-slate-400">({cat._count?.products ?? 0})</span>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{cat.slug}</td>
                 <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{cat.parent?.name || <span className="text-slate-300 dark:text-slate-600">none</span>}</td>

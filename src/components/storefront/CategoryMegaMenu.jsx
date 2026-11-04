@@ -1,7 +1,15 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { ChevronRight, LayoutGrid } from 'lucide-react';
+
+/**
+ * Admin-set `sortOrder` wins; name breaks ties so the menu reads predictably
+ * for rows nobody has numbered yet (they all default to 0).
+ */
+const byOrderThenName = (a, b) =>
+  (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name);
 
 /**
  * Desktop category mega-menu.
@@ -17,13 +25,27 @@ import { ChevronRight, LayoutGrid } from 'lucide-react';
  *
  * @param {object} props
  * @param {string} props.id                 `id` for the trigger's `aria-controls`.
- * @param {{ id: string, name: string, slug: string, children: { id: string, name: string, slug: string }[] }[]} props.categories
+ * @param {{ id: string, name: string, slug: string, sortOrder?: number, children: { id: string, name: string, slug: string, sortOrder?: number }[] }[]} props.categories
  * @param {() => void} props.onMouseEnter   Cancels the pending close.
  * @param {() => void} props.onMouseLeave   Schedules the close.
  * @param {() => void} props.onNavigate     Fires on link activation so the panel can close.
  */
 export default function CategoryMegaMenu({ id, categories = [], onMouseEnter, onMouseLeave, onNavigate }) {
-  const hasCategories = categories.length > 0;
+  // Sort here rather than trusting the incoming prop order — parent columns and
+  // each column's subcategory list are both ordered by sortOrder, then name.
+  const ordered = useMemo(
+    () =>
+      categories
+        .slice()
+        .sort(byOrderThenName)
+        .map((category) => ({
+          ...category,
+          children: (category.children ?? []).slice().sort(byOrderThenName),
+        })),
+    [categories],
+  );
+
+  const hasCategories = ordered.length > 0;
 
   return (
     /* Positioning layer only. It spans the header so the panel below can be
@@ -69,7 +91,7 @@ export default function CategoryMegaMenu({ id, categories = [], onMouseEnter, on
             </p>
           ) : (
             <div className="grid grid-cols-2 gap-x-6 gap-y-5 overflow-y-auto overscroll-contain px-5 py-4 sm:grid-cols-3">
-              {categories.map((category) => (
+              {ordered.map((category) => (
                 <div key={category.id} className="min-w-0">
                   {/* Column title — always a link to the category itself, even
                       when it has no subcategories of its own. */}

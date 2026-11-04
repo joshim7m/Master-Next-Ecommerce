@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { loadCart, updateCartItem, removeCartItem } from '../../lib/cartStorage';
+import { pushEcommerce } from '../../lib/gtm';
 
 export default function CartDrawer({ open, onClose }) {
   const [cart, setCart] = useState([]);
@@ -35,6 +36,7 @@ export default function CartDrawer({ open, onClose }) {
     const next = item.quantity + delta;
     if (next <= 0) {
       removeCartItem(index);
+      pushEcommerce('remove_from_cart', { items: [item] });
     } else {
       updateCartItem(index, next);
     }
@@ -43,6 +45,7 @@ export default function CartDrawer({ open, onClose }) {
 
   const handleRemove = (index) => {
     removeCartItem(index);
+    pushEcommerce('remove_from_cart', { items: [cart[index]] });
     setCart(loadCart());
   };
 

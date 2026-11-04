@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { addToCart } from '../../../lib/cartStorage';
 import { toggleWishlist, loadWishlist } from '../../../lib/wishlistStorage';
-import { pushDataLayer } from '../../../lib/gtm';
+import { pushEcommerce } from '../../../lib/gtm';
 
 const COLOR_MAP = {
   red: '#ef4444', blue: '#3b82f6', green: '#22c55e', yellow: '#eab308',
@@ -171,17 +171,15 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
 
   useEffect(() => {
     const variantName = variantNameOf(selectedVariant);
-    pushDataLayer('view_item', {
-      ecommerce: {
-        items: [{
-          item_id: product.sku,
-          item_name: product.title,
-          price: activePrice,
-          item_category: product.categories?.[0]?.name || undefined,
-          item_variant: variantName,
-          quantity: 1,
-        }],
-      },
+    pushEcommerce('view_item', {
+      items: [{
+        sku: product.sku,
+        title: product.title,
+        price: activePrice,
+        category: product.categories?.[0]?.name,
+        item_variant: variantName,
+        quantity: 1,
+      }],
     });
   }, [product.id]);
 
@@ -277,16 +275,14 @@ export default function ProductInfo({ product, selectedVariant, variantIndex, on
     setFeedback('Added to cart.');
     setTimeout(() => setFeedback(''), 2500);
 
-    pushDataLayer('add_to_cart', {
-      ecommerce: {
-        items: [{
-          item_id: product.sku,
-          item_name: product.title,
-          price: activePrice,
-          item_variant: variantName,
-          quantity,
-        }],
-      },
+    pushEcommerce('add_to_cart', {
+      items: [{
+        sku: product.sku,
+        title: product.title,
+        price: activePrice,
+        item_variant: variantName,
+        quantity,
+      }],
     });
   };
 

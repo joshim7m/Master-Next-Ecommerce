@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { loadCart } from '../../lib/cartStorage';
 import { loadWishlist, pruneWishlist } from '../../lib/wishlistStorage';
+import { pushDataLayer } from '../../lib/gtm';
 import CartDrawer from './CartDrawer';
 import AnnouncementBar from './AnnouncementBar';
 import MobileMenuDrawer from './MobileMenuDrawer';
@@ -165,6 +166,7 @@ export default function Header({ siteName, logo, mobile, announcementText, categ
   const searchInputRef = useRef(null);
   const debounceRef = useRef(null);
   const overlayRef = useRef(null);
+  const lastSearchTermRef = useRef('');
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -195,6 +197,7 @@ export default function Header({ siteName, logo, mobile, announcementText, categ
       setResults([]);
       setSelectedIndex(-1);
       setRecentProducts([]);
+      lastSearchTermRef.current = '';
     }
   }, [searchOpen]);
 
@@ -214,6 +217,12 @@ export default function Header({ siteName, logo, mobile, announcementText, categ
       return;
     }
     setLoading(true);
+    /* One `search` event per distinct term per overlay session — the debounced
+       typing fires this repeatedly, and Meta's Search metric counts queries. */
+    if (lastSearchTermRef.current !== q.trim()) {
+      lastSearchTermRef.current = q.trim();
+      pushDataLayer('search', { search_term: q.trim(), search_string: q.trim() });
+    }
     try {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`);
       const data = await res.json();
@@ -481,7 +490,7 @@ export default function Header({ siteName, logo, mobile, announcementText, categ
                   value={searchQuery}
                   onChange={handleChange}
                   onKeyDown={handleKeyDown}
-                  placeholder="Search products..."
+                  placeholder="Search by title or SKU..."
                   className="flex-1 border-0 bg-transparent text-base outline-none placeholder:text-muted dark:placeholder:text-dark-muted"
                   autoComplete="off"
                 />
@@ -516,7 +525,7 @@ export default function Header({ siteName, logo, mobile, announcementText, categ
                   value={searchQuery}
                   onChange={handleChange}
                   onKeyDown={handleKeyDown}
-                  placeholder="Search for products in the store"
+                  placeholder="Search products by title or SKU..."
                   className="w-full rounded-lg border border-border bg-warm-sand py-3 pl-10 pr-10 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-dark-border dark:bg-dark-card dark:focus:border-primary dark:focus:ring-primary"
                   autoComplete="off"
                 />
@@ -588,7 +597,8 @@ export default function Header({ siteName, logo, mobile, announcementText, categ
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium">{product.title}</p>
-                          <p className="text-xs text-muted dark:text-dark-muted">
+                          <p className="truncate text-xs text-muted dark:text-dark-muted">
+                            {product.sku && <span className="mr-1.5">SKU: {product.sku} ·</span>}
                             ৳{product.price.toLocaleString()}
                             {product.originalPrice && (
                               <span className="ml-1 text-muted line-through dark:text-dark-muted">৳{product.originalPrice.toLocaleString()}</span>

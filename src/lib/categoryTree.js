@@ -11,8 +11,8 @@
  * are treated as roots rather than being dropped — an orphaned subcategory is
  * still shoppable and should still be reachable from the menu.
  *
- * @typedef {{ id: string, name: string, slug: string, parentId?: string | null }} CategoryRow
- * @typedef {{ id: string, name: string, slug: string, parentId: string | null, children: CategoryRow[] }} CategoryNode
+ * @typedef {{ id: string, name: string, slug: string, parentId?: string | null, sortOrder?: number }} CategoryRow
+ * @typedef {{ id: string, name: string, slug: string, parentId: string | null, sortOrder: number, children: CategoryRow[] }} CategoryNode
  */
 
 /**
@@ -32,6 +32,7 @@ export function buildCategoryTree(rows = []) {
       name: row.name,
       slug: row.slug,
       parentId: row.parentId ?? null,
+      sortOrder: row.sortOrder ?? 0,
       children: [],
     });
   }
@@ -48,10 +49,13 @@ export function buildCategoryTree(rows = []) {
     }
   }
 
-  // Alphabetise children so the mega-menu columns read predictably regardless of
-  // the order the parent rows were fetched in.
+  // Admin-set `sortOrder` wins; name breaks ties so the menu reads predictably
+  // for rows nobody has numbered yet (they all default to 0).
+  const byOrderThenName = (a, b) =>
+    a.sortOrder - b.sortOrder || a.name.localeCompare(b.name);
+  roots.sort(byOrderThenName);
   for (const root of roots) {
-    root.children.sort((a, b) => a.name.localeCompare(b.name));
+    root.children.sort(byOrderThenName);
   }
 
   return roots;
@@ -69,10 +73,12 @@ export function buildCategoryTreeForMenu(rows = []) {
     id: root.id,
     name: root.name,
     slug: root.slug,
+    sortOrder: root.sortOrder,
     children: root.children.map((child) => ({
       id: child.id,
       name: child.name,
       slug: child.slug,
+      sortOrder: child.sortOrder,
     })),
   }));
 }

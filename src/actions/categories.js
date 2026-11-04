@@ -53,6 +53,10 @@ export async function createCategory(data) {
   });
   revalidatePath('/admin/categories');
   revalidatePath('/categories');
+  // The storefront header mega-menu and home grids read the category table
+  // through the storefront layout — bust its cache so sortOrder/name/image
+  // changes are visible without a full redeploy.
+  revalidatePath('/', 'layout');
   return category;
 }
 
@@ -74,6 +78,9 @@ export async function updateCategory(id, data) {
   });
   revalidatePath('/admin/categories');
   revalidatePath('/categories');
+  // Bust the storefront layout cache so the header mega-menu picks up the
+  // new sortOrder / name immediately.
+  revalidatePath('/', 'layout');
   return category;
 }
 
@@ -81,4 +88,6 @@ export async function deleteCategory(id) {
   await prisma.category.delete({ where: { id } });
   revalidatePath('/admin/categories');
   revalidatePath('/categories');
+  // Bust the storefront layout cache so the header mega-menu drops the row.
+  revalidatePath('/', 'layout');
 }

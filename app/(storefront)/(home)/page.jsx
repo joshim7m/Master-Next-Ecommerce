@@ -61,7 +61,10 @@ export default async function HomePage({ searchParams }) {
   const [settings, categories, heroProducts, trendingProducts, heroSlides, promoBanner] = await Promise.all([
     getSiteSettings(),
     prisma.category.findMany({
-      include: { _count: { select: { products: true } }, children: { include: { _count: { select: { products: true } } } } },
+      include: {
+        _count: { select: { products: true } },
+        children: { include: { _count: { select: { products: true } } }, orderBy: CATEGORY_ORDER_BY },
+      },
       orderBy: CATEGORY_ORDER_BY,
     }),
     prisma.product.findMany({

@@ -49,8 +49,8 @@ export default async function CategoryListingPage({ searchParams }) {
       take: PER_PAGE,
       include: { _count: { select: { products: true } } },
     }),
-    prisma.category.findMany({ select: { name: true, slug: true } }),
-    prisma.category.findFirst({ where: { image: { not: null } }, orderBy: { name: 'asc' } }),
+    prisma.category.findMany({ select: { name: true, slug: true }, orderBy: CATEGORY_ORDER_BY }),
+    prisma.category.findFirst({ where: { image: { not: null } }, orderBy: CATEGORY_ORDER_BY }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));

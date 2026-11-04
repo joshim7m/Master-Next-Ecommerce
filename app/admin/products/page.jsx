@@ -52,7 +52,9 @@ export default function AdminProductsPage() {
     let list = products;
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter((p) => p.title.toLowerCase().includes(q));
+      list = list.filter((p) =>
+        p.title?.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q)
+      );
     }
     if (filterStatus !== 'all') list = list.filter((p) => p.status === filterStatus);
     if (filterFeatured !== 'all') list = list.filter((p) => (filterFeatured === 'yes') === !!p.featured);
@@ -98,7 +100,7 @@ export default function AdminProductsPage() {
           <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <input type="text" placeholder="Search products\u2026" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm placeholder-slate-400 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500 dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]" />
+          <input type="text" placeholder="Search by title or SKU…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm placeholder-slate-400 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:placeholder-slate-500 dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]" />
         </div>
         <div className="flex items-center gap-2 w-full sm:w-auto order-last sm:order-none">
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="flex-1 sm:flex-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]">
@@ -171,7 +173,7 @@ export default function AdminProductsPage() {
                       Yes
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-300 dark:text-slate-600">\u2014</span>
+                    <span className="text-xs text-slate-300 dark:text-slate-600">{'\u2014'}</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-slate-500 max-w-[150px] truncate dark:text-slate-400">{p.categories?.map((c) => c.name).join(', ') || '\u2014'}</td>

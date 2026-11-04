@@ -22,7 +22,8 @@ ChartJS.register(CategoryScale, LinearScale, BarController, BarElement, Tooltip)
 // the y axis is clock time, so these are hours, not row indices.
 const START_HOUR = 8; // 8 AM, bottom of the axis
 const END_HOUR = 24; // midnight, top of the axis
-const CHART_HEIGHT = 'h-[440px] sm:h-[380px]';
+// Shorter on phones (16 hour buckets don't need 440px), full height from sm up.
+const CHART_HEIGHT = 'h-[340px] sm:h-[380px]';
 
 // Admin accent (brand purple), same tokens as the rest of the dashboard chrome.
 const ACCENT = { light: '#2f0f6b', dark: '#a78bfa' };
@@ -138,11 +139,12 @@ export default function HourlyOrdersChart({ data, loading }) {
           grid: { display: false },
           border: { display: false },
           ticks: {
-            // All seven day names stay on screen at every width.
+            // All seven day names stay on screen at every width — the font
+            // shrinks on phones so 7 labels never get auto-skipped.
             autoSkip: false,
             maxRotation: 0,
             minRotation: 0,
-            font: { size: 11 },
+            font: { size: (ctx) => (ctx.chart?.width < 420 ? 9 : 11) },
             color: muted,
           },
         },
@@ -155,9 +157,9 @@ export default function HourlyOrdersChart({ data, loading }) {
           border: { display: false },
           ticks: {
             stepSize: 1,
-            padding: 6,
+            padding: (ctx) => (ctx.chart?.width < 420 ? 3 : 6),
             precision: 0,
-            font: { size: 10 },
+            font: { size: (ctx) => (ctx.chart?.width < 420 ? 8 : 10) },
             color: muted,
             callback: (value) => hourLabels[Math.round(value) - START_HOUR] || '',
           },
@@ -187,10 +189,10 @@ export default function HourlyOrdersChart({ data, loading }) {
   );
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2 dark:border-slate-700 dark:bg-slate-800">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:col-span-2 dark:border-slate-700 dark:bg-slate-800">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+          <h2 className="text-base font-semibold text-slate-900 sm:text-lg dark:text-white">
             Orders by Day &amp; Hour
           </h2>
           <p className="mt-0.5 text-xs text-slate-400">
@@ -221,7 +223,7 @@ export default function HourlyOrdersChart({ data, loading }) {
           </p>
         </div>
       ) : (
-        <div className={CHART_HEIGHT}>
+        <div className={`w-full ${CHART_HEIGHT}`}>
           {/* The canvas is a single opaque element to a screen reader, so the
               summary is passed as the canvas's own fallback content. */}
           <Bar
