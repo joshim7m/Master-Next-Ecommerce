@@ -50,5 +50,5 @@
 ## যা পরিবর্তন হয়নি
 
 - Prisma schema ও database — কোনো migration নেই (`orderStatus` একটি String field, তাই `'incomplete'` নতুন value হিসেবে কাজ করে)।
-- Pending-order duplicate block check (শুধু `pending` status match করে) এবং Telegram alert (draft-এর জন্য পাঠানো হয় না) — অপরিবর্তিত।
+- Pending-order duplicate block check — এখন `LIVE_ORDER_STATUSES = ['pending', 'blocked', 'hold', 'in_review']` (`src/lib/checkoutGuards.js`), এবং `/api/checkout/incomplete`-ও একই guard ব্যবহার করে। Blocklist (`blockedDevice`) বা live order থাকলে draft save/আপডেট হয় না (`403`)। এক ডিভাইসে এক draft — নতুন session-এ পুরনো draft reuse হয়। Telegram alert (draft-এর জন্য পাঠানো হয় না) — অপরিবর্তিত।
 - `OrderDetails.shippingAddress` / `shippingArea` NOT NULL — draft-এ খালি থাকলে `''` save হয়।

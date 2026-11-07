@@ -3,6 +3,7 @@ import prisma from '../../../../src/lib/prisma';
 import { deleteIncompleteOrders } from '../../../../src/lib/incompleteCheckout';
 import { getDeliveryAreas } from '../../../../src/lib/getDeliveryAreas';
 import { resolveAreaName, chargeForArea } from '../../../../src/lib/deliveryAreas';
+import { LIVE_ORDER_STATUSES } from '../../../../src/lib/checkoutGuards';
 
 const MOBILE_REGEX = /^(013|014|015|016|017|018|019)\d{8}$/;
 
@@ -43,6 +44,34 @@ export async function POST(request) {
     return NextResponse.json({ error: 'আপনার কার্ট খালি।' }, { status: 400 });
   }
 
+  // No drafts for devices that are blocked or already have a live order —
+  // same rejection shape as `/api/checkout`.
+  if (deviceHash) {
+    const blockedDevice = await prisma.blockedDevice.findUnique({
+      where: { deviceHash },
+    });
+    if (blockedDevice) {
+      return NextResponse.json(
+        { error: 'আপনাকে অর্ডার করা থেকে বন্ধ করা হয়েছে।' },
+        { status: 403 }
+      );
+    }
+
+    const liveOrder = await prisma.orderDetails.findFirst({
+      where: {
+        deviceHash,
+        order: { orderStatus: { in: LIVE_ORDER_STATUSES } },
+      },
+      select: { order: { select: { orderNo: true } } },
+    });
+    if (liveOrder) {
+      return NextResponse.json(
+        { error: `আপনার একটি অর্ডার #${liveOrder.order.orderNo} ইতোমধ্যে অপেক্ষমাণ আছে। অনুগ্রহ করে প্রক্রিয়া হওয়া পর্যন্ত অপেক্ষা করুন।` },
+        { status: 403 }
+      );
+    }
+  }
+
   // Drafts use the same admin-configured zones as the real checkout.
   const areas = await getDeliveryAreas();
   const shippingAreaValue = resolveAreaName(areas, shippingArea);
@@ -60,6 +89,17 @@ export async function POST(request) {
     if (orderNo) {
       draft = await tx.order.findFirst({
         where: { orderNo: String(orderNo), orderStatus: 'incomplete' },
+      });
+    }
+
+    // One draft per device: even without the session's orderNo (new session,
+    // cleared sessionStorage), reuse the device's dangling draft instead of
+    // letting drafts accumulate. Blocked/live-order devices never reach here
+    // thanks to the guard above.
+    if (!draft && deviceHash) {
+      draft = await tx.order.findFirst({
+        where: { orderStatus: 'incomplete', details: { deviceHash } },
+        orderBy: { createdAt: 'desc' },
       });
     }
 

@@ -211,6 +211,14 @@ const blocked = await prisma.blockedDevice.create({
 });
 ```
 
+After the row is created, the linked order is also marked `orderStatus: 'blocked'`
+so it becomes undeletable (permanent business record). Lookup order:
+
+1. `orderNo` in the body → update that order directly.
+2. No `orderNo` → latest order via `details.deviceHash` gets the status.
+
+A failed order lookup is logged but does **not** undo the device block.
+
 ### 4.2 Admin — unblock a device
 
 `DELETE /api/admin/orders/unblock?deviceHash=<hash>` — **JWT-guarded**.
@@ -236,9 +244,12 @@ Used by both the storefront checkout page (pre-redirect) and the admin order det
 `deviceHash` was supplied:
 
 1. **Blocklist check** → `403 { error: 'You have been blocked from placing orders.' }`
-2. **One-pending-order-per-device** → `403 { error: 'You already have a pending order
-   #{orderNo}. Please wait for it to be processed.' }`
-   (query: `OrderDetails where deviceHash = hash AND order.orderStatus = 'pending'`)
+2. **One-live-order-per-device** → `403`
+   (query: `OrderDetails where deviceHash = hash AND order.orderStatus IN LIVE_ORDER_STATUSES`
+   — `['pending', 'blocked', 'hold', 'in_review']` from `src/lib/checkoutGuards.js`)
+
+The same two guards also run in `POST /api/checkout/incomplete` — a blocked
+device, or one with a live order, cannot even save an autosave draft.
 
 If allowed, `ipAddress` (from `x-forwarded-for` → `x-real-ip` → `cf-connecting-ip` → null)
 and `deviceHash` are persisted with the new `OrderDetails` row.

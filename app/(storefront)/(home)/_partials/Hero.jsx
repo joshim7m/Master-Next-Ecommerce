@@ -25,17 +25,20 @@ export default function Hero({ slides = [] }) {
 
   return (
     <section
-      className="bg-[#eff6ff] px-4 py-12 dark:bg-dark-card/30"
+      className="bg-soft-blush px-4 pt-7 md:pt-10 dark:bg-dark-card/30"
     >
-      <div className='relative mx-auto w-full max-w-[1440px] overflow-hidden bg-[#eff6ff] rounded-lg sm:rounded-2xl'>
+      <div className='relative mx-auto w-full max-w-[1440px] overflow-hidden bg-soft-blush rounded-lg sm:rounded-2xl'>
         {/* Slides — stacked images with fade transition */}
-        <div className="aspect-[4/3] w-full overflow-hidden bg-slate-100 sm:aspect-[2.8/1] ">
+        <div className="grid w-full overflow-hidden bg-warm-sand">
           {slides.map((s, i) => (
             <img
               key={s.image + i || i}
               alt={s.title || 'hero image'}
               src={s.image || ''}
-              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-out ${i === active ? 'opacity-100' : 'opacity-0'}`}
+              // All slides occupy the same grid cell, so the section's height
+              // follows the images' own aspect ratio — no letterboxing, no
+              // blank bands. Fade replaces one with the next in place.
+              className={`[grid-area:1/1] mx-auto w-full transition-opacity duration-1000 ease-out ${i === active ? 'opacity-100' : 'opacity-0'}`}
               loading={i === 0 ? 'eager' : 'lazy'}
             />
           ))}
@@ -61,7 +64,7 @@ export default function Hero({ slides = [] }) {
             <div className="hidden flex flex-wrap items-center gap-3">
               <Link
                 href={slide.buttonLink || '#trending'}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-7 py-3.5 text-sm font-semibold text-editorial-ink shadow-lg transition-all duration-300 hover:bg-white/90 active:scale-95"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-7 py-3.5 text-sm font-semibold text-on-primary shadow-lg transition-all duration-300 hover:bg-primary/90 active:scale-95"
               >
                 {slide.buttonText || 'Shop Now'}
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

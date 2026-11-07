@@ -4,6 +4,7 @@ import { sendOrderAlert } from '../../../src/lib/telegram';
 import { deleteIncompleteOrders } from '../../../src/lib/incompleteCheckout';
 import { getDeliveryAreas } from '../../../src/lib/getDeliveryAreas';
 import { resolveAreaName, chargeForArea } from '../../../src/lib/deliveryAreas';
+import { LIVE_ORDER_STATUSES } from '../../../src/lib/checkoutGuards';
 
 // Latin + Bangla letters only, plus space/apostrophe/hyphen/full-stop.
 const NAME_REGEX = /^[\p{Script=Latin}\p{Script=Bengali}\p{Zs} '.-]+$/u;
@@ -52,17 +53,17 @@ export async function POST(request) {
       );
     }
 
-    const pendingOrder = await prisma.orderDetails.findFirst({
+    const liveOrder = await prisma.orderDetails.findFirst({
       where: {
         deviceHash,
-        order: { orderStatus: 'pending' },
+        order: { orderStatus: { in: LIVE_ORDER_STATUSES } },
       },
       select: { order: { select: { orderNo: true } } },
     });
 
-    if (pendingOrder) {
+    if (liveOrder) {
       return NextResponse.json(
-        { error: `আপনার একটি অর্ডার #${pendingOrder.order.orderNo} ইতোমধ্যে অপেক্ষমাণ আছে। অনুগ্রহ করে প্রক্রিয়া হওয়া পর্যন্ত অপেক্ষা করুন।` },
+        { error: `আপনার একটি অর্ডার #${liveOrder.order.orderNo} ইতোমধ্যে অপেক্ষমাণ আছে। অনুগ্রহ করে প্রক্রিয়া হওয়া পর্যন্ত অপেক্ষা করুন।` },
         { status: 403 }
       );
     }

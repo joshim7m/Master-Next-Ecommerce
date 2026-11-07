@@ -145,8 +145,12 @@ export default function OrderDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceHash, orderNo: order.orderNo, reason: 'Blocked from order detail page' }),
       });
-      if (res.ok) setIsBlocked(true);
-      else {
+      if (res.ok) {
+        setIsBlocked(true);
+        // The block API also flips the order status to `blocked` — re-fetch so
+        // the status badge updates without a manual reload.
+        await refreshOrder();
+      } else {
         const data = await res.json();
         alert(data.error || 'Failed to block device.');
       }
@@ -162,8 +166,12 @@ export default function OrderDetailPage() {
     setBlockLoading(true);
     try {
       const res = await fetch(`/api/admin/orders/unblock?deviceHash=${deviceHash}`, { method: 'DELETE' });
-      if (res.ok) setIsBlocked(false);
-      else {
+      if (res.ok) {
+        setIsBlocked(false);
+        // The unblock API also flips the order back to `pending` — re-fetch so
+        // the status badge updates without a manual reload.
+        await refreshOrder();
+      } else {
         const data = await res.json();
         alert(data.error || 'Failed to unblock device.');
       }
@@ -526,7 +534,11 @@ export default function OrderDetailPage() {
                   disabled={saving}
                   className="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 pr-8 text-sm text-slate-900 focus:border-[#2f0f6b] focus:outline-none focus:ring-1 focus:ring-[#2f0f6b] disabled:opacity-50 transition dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-[#a78bfa] dark:focus:ring-[#a78bfa]"
                 >
-                  {orderStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
+                  {/* `blocked` is not manually selectable — it's set only by the
+                      block-device API. Show it (disabled) so blocked orders still
+                      display their value. */}
+                  {order.orderStatus === 'blocked' && <option value="blocked" disabled>blocked</option>}
+                  {orderStatuses.filter((s) => s !== 'blocked').map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <svg className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

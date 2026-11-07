@@ -25,5 +25,26 @@ export async function POST(request) {
     },
   });
 
+  // Keep the order record in sync — a blocked order stays `blocked` as a
+  // business record (deleteOrder refuses to delete it). Prefer the explicit
+  // orderNo; otherwise fall back to the latest order placed from this device.
+  // A failed lookup doesn't undo the device block itself.
+  try {
+    if (orderNo) {
+      await prisma.order.update({ where: { orderNo }, data: { orderStatus: 'blocked' } });
+    } else {
+      const latest = await prisma.order.findFirst({
+        where: { details: { deviceHash } },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      });
+      if (latest) {
+        await prisma.order.update({ where: { id: latest.id }, data: { orderStatus: 'blocked' } });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to set order status to blocked:', err);
+  }
+
   return NextResponse.json({ success: true, blocked });
 }

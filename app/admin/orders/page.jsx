@@ -123,7 +123,10 @@ function StatusSelect({ order, onUpdate }) {
         'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400'
       }`}
     >
-      {orderStatuses.map((s) => (
+      {/* `blocked` is not manually selectable — it's set only by the block-device
+          API. Show it (disabled) so blocked orders still display their badge. */}
+      {order.orderStatus === 'blocked' && <option value="blocked" disabled>blocked</option>}
+      {orderStatuses.filter((s) => s !== 'blocked').map((s) => (
         <option key={s} value={s}>
           {s}
         </option>

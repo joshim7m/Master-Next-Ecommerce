@@ -176,7 +176,16 @@ export default function CheckoutPage() {
         body: JSON.stringify({ ...payload, orderNo: draftOrderNoRef.current || undefined }),
       })
         .then(async (res) => {
-          if (!res.ok) return;
+          if (!res.ok) {
+            // Device is blocked or already has a live order — the server
+            // refuses to save any draft. Surface the reason the same way
+            // form submission errors are shown.
+            try {
+              const data = await res.json();
+              if (data?.error) setErrorMsg(data.error);
+            } catch {}
+            return;
+          }
           const data = await res.json();
           if (data.orderNo) {
             draftOrderNoRef.current = data.orderNo;
