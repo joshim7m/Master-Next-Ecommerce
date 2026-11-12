@@ -1,10 +1,26 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../../src/lib/prisma';
 
-export async function GET() {
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const q = (searchParams.get('q') || '').trim();
+
+  // `q` powers the admin "Create Order" product picker: live search over
+  // published products by title or SKU, with variants + images included so
+  // variants can be chosen and priced without another round trip.
   const products = await prisma.product.findMany({
+    where: q
+      ? {
+          status: 'publish',
+          OR: [
+            { title: { contains: q, mode: 'insensitive' } },
+            { sku: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : undefined,
     include: { images: true, variants: true, categories: true },
     orderBy: { createdAt: 'desc' },
+    take: q ? 10 : undefined,
   });
   return NextResponse.json(products);
 }

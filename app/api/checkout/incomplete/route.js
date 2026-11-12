@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import prisma from '../../../../src/lib/prisma';
 import { deleteIncompleteOrders } from '../../../../src/lib/incompleteCheckout';
 import { getDeliveryAreas } from '../../../../src/lib/getDeliveryAreas';
+import { getFreeDeliverySettings } from '../../../../src/lib/getFreeDeliverySettings';
+import { applyFreeDelivery } from '../../../../src/lib/freeDelivery';
 import { resolveAreaName, chargeForArea } from '../../../../src/lib/deliveryAreas';
 import { LIVE_ORDER_STATUSES } from '../../../../src/lib/checkoutGuards';
 
@@ -30,7 +32,8 @@ function buildItemsData(items) {
 
 export async function POST(request) {
   const body = await request.json();
-  const { orderNo, name, mobile, address, shippingArea, items, deviceHash } = body;
+  const { orderNo, name, mobile, address, shippingArea, items, deviceHash, orderNote } = body;
+  const trimmedOrderNote = String(orderNote || '').trim().slice(0, 200) || null;
 
   const normalizedMobile = typeof mobile === 'string' ? mobile.trim() : '';
   if (!normalizedMobile || !MOBILE_REGEX.test(normalizedMobile)) {
@@ -72,10 +75,16 @@ export async function POST(request) {
     }
   }
 
-  // Drafts use the same admin-configured zones as the real checkout.
+  // Drafts use the same admin-configured zones as the real checkout, including
+  // the free-delivery promo for multi-product carts.
   const areas = await getDeliveryAreas();
   const shippingAreaValue = resolveAreaName(areas, shippingArea);
-  const deliveryCharge = chargeForArea(areas, shippingAreaValue);
+  const freeDelivery = await getFreeDeliverySettings();
+  const deliveryCharge = applyFreeDelivery(
+    chargeForArea(areas, shippingAreaValue),
+    items,
+    freeDelivery
+  );
   const subtotal = items.reduce((sum, item) => {
     const price = Number(item.salePrice ?? item.price ?? 0);
     const quantity = Number(item.quantity ?? 0);
@@ -117,6 +126,7 @@ export async function POST(request) {
           shippingArea: shippingAreaValue,
           deliveryCharge,
           deviceHash: deviceHash || null,
+          orderNote: trimmedOrderNote,
         },
         create: {
           orderId: draft.id,
@@ -126,6 +136,7 @@ export async function POST(request) {
           shippingArea: shippingAreaValue,
           deliveryCharge,
           deviceHash: deviceHash || null,
+          orderNote: trimmedOrderNote,
         },
       });
       await tx.orderItem.deleteMany({ where: { orderId: draft.id } });
@@ -160,6 +171,7 @@ export async function POST(request) {
                 deliveryCharge,
                 ipAddress: extractIpAddress(request),
                 deviceHash: deviceHash || null,
+                orderNote: trimmedOrderNote,
               },
             },
             items: { create: itemsData },

@@ -4,6 +4,10 @@ import { revalidatePath } from 'next/cache';
 import prisma from '../lib/prisma';
 import { deleteIncompleteOrders } from '../lib/incompleteCheckout';
 import { captureCompletedCustomer } from '../lib/completedCustomers';
+import { getDeliveryAreas } from '../lib/getDeliveryAreas';
+import { getFreeDeliverySettings } from '../lib/getFreeDeliverySettings';
+import { applyFreeDelivery } from '../lib/freeDelivery';
+import { resolveAreaName, chargeForArea } from '../lib/deliveryAreas';
 
 function serialize(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -615,6 +619,9 @@ async function recalculateOrderTotal(orderId) {
 }
 
 export async function updateOrderItemQuantity(itemId, quantity) {
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new Error('Quantity must be at least 1');
+  }
   const item = await prisma.orderItem.update({
     where: { id: itemId },
     data: { quantity },
@@ -632,10 +639,262 @@ export async function deleteOrderItem(itemId) {
   });
   if (!item) throw new Error('Item not found');
   if (item.order.orderStatus === 'completed') throw new Error('Cannot remove items from completed orders');
+  // An order always keeps at least one item — remove the whole order instead.
+  const itemCount = await prisma.orderItem.count({ where: { orderId: item.orderId } });
+  if (itemCount <= 1) {
+    throw new Error('An order must have at least one item. Delete the order instead.');
+  }
   await prisma.orderItem.delete({ where: { id: itemId } });
   await recalculateOrderTotal(item.orderId);
   revalidatePath('/admin/orders');
   return serialize(item);
+}
+
+/**
+ * Creates an order from the admin panel ("Create Order" modal). Every price is
+ * re-derived from the product/variant rows — nothing the client sends is
+ * trusted — mirroring the storefront checkout's pricing rules:
+ * variant sale_price ?? variant unite_price ?? product sale_price ?? product
+ * unite_price; the variant's own image when it has one, else the product's
+ * first image. `orderNo` is a unique 6-digit number, `orderStatus` starts at
+ * `pending`, and the delivery charge comes from the admin-configured zones.
+ */
+export async function createOrder(input) {
+  const { items: requestedItems, customerName, phoneNumber, shippingArea, shippingAddress, orderNote } = input || {};
+
+  if (!Array.isArray(requestedItems) || requestedItems.length === 0) {
+    throw new Error('Add at least one item to the order.');
+  }
+  const name = String(customerName || '').trim();
+  const mobile = String(phoneNumber || '').trim();
+  const address = String(shippingAddress || '').trim();
+  if (!name) throw new Error('Customer name is required.');
+  if (!/^(?:\+?88)?01[3-9]\d{8}$/.test(mobile)) {
+    throw new Error('Enter a valid Bangladeshi mobile number, e.g. 017XXXXXXXX.');
+  }
+  if (!address) throw new Error('Shipping address is required.');
+
+  // Re-price each requested line from the database rows.
+  const lines = [];
+  for (const requested of requestedItems) {
+    const quantity = Math.max(1, Math.floor(Number(requested?.quantity) || 1));
+    const variantId = requested?.variantId && requested.variantId !== 'default' ? requested.variantId : null;
+    const productId = requested?.productId;
+
+    const variant = variantId
+      ? await prisma.productVariant.findUnique({
+          where: { id: variantId },
+          include: {
+            image: { select: { image_path: true } },
+            product: { include: { images: { select: { image_path: true }, orderBy: { id: 'asc' } } } },
+          },
+        })
+      : productId
+        ? await prisma.product.findUnique({
+            where: { id: productId },
+            include: { images: { select: { image_path: true }, orderBy: { id: 'asc' } } },
+          })
+        : null;
+    if (!variant) throw new Error('One of the selected products could not be found.');
+
+    const isVariant = !!variantId;
+    const product = isVariant ? variant.product : variant;
+    const price = isVariant
+      ? variant.sale_price ?? variant.unite_price ?? product.sale_price ?? product.unite_price
+      : product.sale_price ?? product.unite_price;
+    if (price === null || price === undefined) {
+      throw new Error(`"${product.title}" has no price set.`);
+    }
+
+    // Merge repeated picks of the same variant/product into one line.
+    const lineKey = isVariant ? `v:${variant.id}` : `p:${product.id}`;
+    const existing = lines.find((l) => l.key === lineKey);
+    if (existing) {
+      existing.quantity += quantity;
+      continue;
+    }
+    lines.push({
+      key: lineKey,
+      productId: product.id,
+      productTitle: product.title,
+      sku: (isVariant ? variant.sku : product.sku) || product.sku || null,
+      itemImagePath:
+        (isVariant ? variant.image?.image_path : null) ||
+        product.images?.[0]?.image_path ||
+        '',
+      purchasePrice: Number(price),
+      quantity,
+      variantName: isVariant ? variantLabel(variant.options) : null,
+      variantId: isVariant ? variant.id : null,
+    });
+  }
+
+  // Zones + charges are admin-configured; the charge is always derived
+  // server-side (never trusted from the browser), like checkout does. Manual
+  // orders follow the same free-delivery promo for multi-product carts.
+  const areas = await getDeliveryAreas();
+  const shippingAreaValue = resolveAreaName(areas, shippingArea);
+  const freeDelivery = await getFreeDeliverySettings();
+  const deliveryCharge = applyFreeDelivery(
+    chargeForArea(areas, shippingAreaValue),
+    lines,
+    freeDelivery
+  );
+  const subtotal = lines.reduce((s, l) => s + l.purchasePrice * l.quantity, 0);
+  const total = Math.max(0, subtotal + deliveryCharge);
+
+  // 6-digit order number, retried on the (rare) collision.
+  let orderNo;
+  for (let attempt = 0; attempt < 5 && !orderNo; attempt++) {
+    const candidate = String(Math.floor(100000 + Math.random() * 900000));
+    const taken = await prisma.order.findUnique({ where: { orderNo: candidate }, select: { id: true } });
+    if (!taken) orderNo = candidate;
+  }
+  if (!orderNo) throw new Error('Could not allocate an order number. Try again.');
+
+  await prisma.order.create({
+    data: {
+      orderNo,
+      total,
+      orderStatus: 'pending',
+      details: {
+        create: {
+          customerName: name,
+          phoneNumber: mobile,
+          shippingArea: shippingAreaValue,
+          shippingAddress: address,
+          orderNote: String(orderNote || '').trim() || null,
+          deliveryCharge,
+        },
+      },
+      items: {
+        create: lines.map((l) => ({
+          productTitle: l.productTitle,
+          sku: l.sku,
+          itemImagePath: l.itemImagePath,
+          purchasePrice: l.purchasePrice,
+          quantity: l.quantity,
+          variantName: l.variantName,
+          variantId: l.variantId,
+        })),
+      },
+    },
+  });
+
+  revalidatePath('/admin/orders');
+  return serialize({ orderNo, total });
+}
+
+/** Human label for a variant, matching the storefront's cart naming. */
+function variantLabel(options) {
+  return Array.isArray(options)
+    ? options.filter(Boolean).join(' / ') || 'Default'
+    : 'Default';
+}
+
+/** Effective selling price of a variant: sale price when set, else unit price. */
+function variantPrice(variant) {
+  if (variant.sale_price !== null && variant.sale_price !== undefined) return Number(variant.sale_price);
+  if (variant.unite_price !== null && variant.unite_price !== undefined) return Number(variant.unite_price);
+  return null;
+}
+
+/**
+ * Recovers the product behind an order item. `OrderItem` snapshots the variant
+ * (id, name, SKU, price, image) but stores no `productId`, so the product is
+ * resolved by:
+ *   1. the stored variantId — when it's a real variant id (the cart writes the
+ *      placeholder `'default'` for variant-less products, so ignore that),
+ *   2. the stored SKU matched against `ProductVariant.sku`,
+ *   3. the product title.
+ * Returns null when nothing matches (e.g. the product was deleted).
+ */
+async function resolveProductIdForOrderItem(item) {
+  if (item.variantId && item.variantId !== 'default') {
+    const viaVariant = await prisma.productVariant.findUnique({
+      where: { id: item.variantId },
+      select: { productId: true },
+    });
+    if (viaVariant) return viaVariant.productId;
+  }
+  if (item.sku) {
+    const viaSku = await prisma.productVariant.findFirst({
+      where: { sku: item.sku },
+      select: { productId: true },
+    });
+    if (viaSku) return viaSku.productId;
+  }
+  const viaTitle = await prisma.product.findFirst({
+    where: { title: item.productTitle },
+    select: { id: true },
+  });
+  return viaTitle?.id || null;
+}
+
+/**
+ * Variant choices for the admin "change variant" action on an order item:
+ * every variant of the item's product, with the same name/price/image
+ * derivation the storefront uses.
+ */
+export async function getOrderItemVariants(itemId) {
+  const item = await prisma.orderItem.findUnique({ where: { id: itemId } });
+  if (!item) throw new Error('Item not found');
+  const productId = await resolveProductIdForOrderItem(item);
+  if (!productId) return [];
+  const variants = await prisma.productVariant.findMany({
+    where: { productId },
+    include: { image: { select: { image_path: true } } },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+  });
+  return serialize(
+    variants.map((v) => ({
+      id: v.id,
+      name: variantLabel(v.options),
+      sku: v.sku,
+      price: variantPrice(v),
+      imagePath: v.image?.image_path || null,
+    }))
+  );
+}
+
+/**
+ * Switches an order item to another variant of the same product: rewrites the
+ * variant snapshot (name, SKU, price, image) and recalculates the order total.
+ * Completed orders are final, mirroring `deleteOrderItem`'s guard.
+ */
+export async function updateOrderItemVariant(itemId, variantId) {
+  const item = await prisma.orderItem.findUnique({
+    where: { id: itemId },
+    include: { order: { select: { orderStatus: true } } },
+  });
+  if (!item) throw new Error('Item not found');
+  if (item.order.orderStatus === 'completed') {
+    throw new Error('Cannot change variants on completed orders');
+  }
+  const productId = await resolveProductIdForOrderItem(item);
+  const variant = productId
+    ? await prisma.productVariant.findFirst({
+        where: { id: variantId, productId },
+        include: { image: { select: { image_path: true } } },
+      })
+    : null;
+  if (!variant) throw new Error('Variant not found for this product');
+  const price = variantPrice(variant);
+  if (price === null) throw new Error('The selected variant has no price set');
+
+  await prisma.orderItem.update({
+    where: { id: itemId },
+    data: {
+      variantId: variant.id,
+      variantName: variantLabel(variant.options),
+      sku: variant.sku || null,
+      purchasePrice: price,
+      itemImagePath: variant.image?.image_path || item.itemImagePath,
+    },
+  });
+  await recalculateOrderTotal(item.orderId);
+  revalidatePath('/admin/orders');
+  return serialize({ ok: true });
 }
 
 export async function updateOrderDetails(orderId, data) {

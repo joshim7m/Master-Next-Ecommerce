@@ -3,6 +3,8 @@ import prisma from '../../../src/lib/prisma';
 import { sendOrderAlert } from '../../../src/lib/telegram';
 import { deleteIncompleteOrders } from '../../../src/lib/incompleteCheckout';
 import { getDeliveryAreas } from '../../../src/lib/getDeliveryAreas';
+import { getFreeDeliverySettings } from '../../../src/lib/getFreeDeliverySettings';
+import { applyFreeDelivery } from '../../../src/lib/freeDelivery';
 import { resolveAreaName, chargeForArea } from '../../../src/lib/deliveryAreas';
 import { LIVE_ORDER_STATUSES } from '../../../src/lib/checkoutGuards';
 
@@ -19,7 +21,11 @@ function visibleLength(value) {
 
 export async function POST(request) {
   const body = await request.json();
-  const { name, mobile, address, shippingArea, items, deviceHash, draftOrderNo } = body;
+  const { name, mobile, address, shippingArea, items, deviceHash, draftOrderNo, orderNote } = body;
+
+  // Optional customer note (checkout "Order Note" box) — trimmed and capped so
+  // a pasted novel can't bloat the order details row.
+  const trimmedOrderNote = String(orderNote || '').trim().slice(0, 200) || null;
 
   const ipAddress =
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -71,10 +77,16 @@ export async function POST(request) {
 
   // Zones + charges are admin-configured (Settings → Site Config); the price is
   // always recalculated here so the browser can't dictate it. Unknown or legacy
-  // area names fall back to the matching default zone.
+  // area names fall back to the matching default zone. The free-delivery promo
+  // (also admin-configured) zeroes the charge for multi-product orders.
   const areas = await getDeliveryAreas();
   const shippingAreaValue = resolveAreaName(areas, shippingArea);
-  const deliveryCharge = chargeForArea(areas, shippingAreaValue);
+  const freeDelivery = await getFreeDeliverySettings();
+  const deliveryCharge = applyFreeDelivery(
+    chargeForArea(areas, shippingAreaValue),
+    items,
+    freeDelivery
+  );
   const subtotal = items.reduce((sum, item) => {
     const price = Number(item.salePrice ?? item.price ?? 0);
     const quantity = Number(item.quantity ?? 0);
@@ -97,6 +109,7 @@ export async function POST(request) {
           deliveryCharge,
           ipAddress,
           deviceHash: deviceHash || null,
+          orderNote: trimmedOrderNote,
         },
       },
       items: {

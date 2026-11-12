@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { getOrderByOrderNo, updateOrderStatus, updateOrderDetails, updateOrderItemQuantity, deleteOrderItem, deleteOrder } from '../../../../src/actions/orders';
+import { getOrderByOrderNo, updateOrderStatus, updateOrderDetails, updateOrderItemQuantity, updateOrderItemVariant, getOrderItemVariants, deleteOrderItem } from '../../../../src/actions/orders';
 import { DEFAULT_DELIVERY_AREAS } from '../../../../src/lib/deliveryAreas';
 import ConfirmDialog from '../../../../src/components/ConfirmDialog';
 import CourierBookingModal from '../../../../src/components/admin/CourierBookingModal';
@@ -30,7 +30,6 @@ const orderStatusColors = {
 
 export default function OrderDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,11 +47,14 @@ export default function OrderDetailPage() {
 
   // Confirmation dialogs
   const [confirmDelete, setConfirmDelete] = useState({ open: false, itemId: null });
-  const [confirmDeleteOrder, setConfirmDeleteOrder] = useState(false);
-  const [deleteOrderLoading, setDeleteOrderLoading] = useState(false);
   const [confirmQuantity, setConfirmQuantity] = useState({ open: false, itemId: null, newQty: null });
   const [confirmBlock, setConfirmBlock] = useState(false);
   const [confirmUnblock, setConfirmUnblock] = useState(false);
+
+  // Variant switching: picker lists the product's variants; picking one asks
+  // for confirmation (it rewrites price/SKU/image and moves the total).
+  const [variantPicker, setVariantPicker] = useState({ open: false, itemId: null, item: null, variants: null, error: null });
+  const [confirmVariant, setConfirmVariant] = useState({ open: false, variant: null });
 
   useEffect(() => {
     getOrderByOrderNo(params.orderNo).then((data) => {
@@ -209,14 +211,7 @@ export default function OrderDetailPage() {
   const discount = Number(order.details?.discount || 0);
   const maxDiscount = subtotal + deliveryCharge;
   const discountOverLimit = parseFloat(discountInput) > maxDiscount;
-  const osColor = orderStatusColors[order.orderStatus] || { bg: 'bg-slate-100 dark:bg-slate-700', text: 'text-slate-600 dark:text-slate-400', dot: 'bg-slate-400' };
   const canEdit = order.orderStatus !== 'completed';
-  // Mirrors the server guard in deleteOrder — in-courier / blocked never;
-  // completed only once older than 31 days.
-  const canDelete =
-    !['in_courier', 'blocked'].includes(order.orderStatus) &&
-    (order.orderStatus !== 'completed' ||
-      new Date(order.createdAt).getTime() < Date.now() - 31 * 24 * 60 * 60 * 1000);
   // Money is frozen once the order is delivered or cancelled.
   const moneyLocked = order.orderStatus === 'completed' || order.orderStatus === 'cancelled';
 
@@ -270,16 +265,34 @@ export default function OrderDetailPage() {
     setSaving(false);
   };
 
-  /** Delete this order after the confirmation dialog; the row is guarded server-side too. */
-  const handleDeleteOrder = async () => {
-    setDeleteOrderLoading(true);
+  const openVariantPicker = async (item) => {
+    setVariantPicker({ open: true, itemId: item.id, item, variants: null, error: null });
     try {
-      await deleteOrder(order.id);
-      router.push('/admin/orders');
-    } catch (e) {
-      setDeleteOrderLoading(false);
-      alert(e?.message?.replace(/^Error: /, '') || 'Failed to delete order');
+      const variants = await getOrderItemVariants(item.id);
+      setVariantPicker((s) => (s.itemId === item.id ? { ...s, variants } : s));
+    } catch {
+      setVariantPicker((s) => (s.itemId === item.id ? { ...s, variants: [], error: 'Failed to load variants' } : s));
     }
+  };
+
+  const closeVariantPicker = () => setVariantPicker({ open: false, itemId: null, item: null, variants: null, error: null });
+
+  const handleVariantChange = async () => {
+    const { itemId, variant } = confirmVariant;
+    setConfirmVariant({ open: false, variant: null });
+    if (!itemId || !variant) return;
+    setSaving(true);
+    try {
+      await updateOrderItemVariant(itemId, variant.id);
+      const updated = await getOrderByOrderNo(params.orderNo);
+      setOrder(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      alert(e?.message?.replace(/^Error: /, '') || 'Failed to change variant');
+    }
+    setSaving(false);
+    closeVariantPicker();
   };
 
   const startEditCustomer = () => {
@@ -390,22 +403,6 @@ export default function OrderDetailPage() {
             </svg>
             Download Invoice
           </Link>
-          {canDelete && (
-            <button
-              onClick={() => setConfirmDeleteOrder(true)}
-              disabled={deleteOrderLoading}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-red-600 shadow-sm transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed dark:border-red-900/50 dark:bg-slate-800 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
-            >
-              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              Delete Order
-            </button>
-          )}
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold ${osColor.bg} ${osColor.text}`}>
-            <span className={`h-1.5 w-1.5 rounded-full ${osColor.dot}`} />
-            {order.orderStatus}
-          </span>
         </div>
       </div>
 
@@ -475,12 +472,25 @@ export default function OrderDetailPage() {
                     </div>
                     <button
                       onClick={() => setConfirmDelete({ open: true, itemId: item.id })}
-                      disabled={saving}
+                      disabled={saving || order.items.length <= 1}
                       className="rounded-lg p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 transition dark:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                      title="Remove item"
+                      title={order.items.length <= 1 ? 'An order must keep at least one item' : 'Remove item'}
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
+                    {item.variantId && (
+                      <button
+                        onClick={() => openVariantPicker(item)}
+                        disabled={saving}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300 hover:text-slate-900 transition disabled:opacity-30 disabled:cursor-not-allowed dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-white"
+                        title="Change variant"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        Change variant
+                      </button>
+                    )}
                   </div>
                 )}
               </li>
@@ -1008,6 +1018,66 @@ export default function OrderDetailPage() {
         />
       )}
 
+      {/* Variant picker modal */}
+      {variantPicker.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/40" onClick={closeVariantPicker} />
+          <div className="relative z-10 w-full max-w-md rounded-xl bg-white p-6 shadow-xl animate-fade-in dark:bg-slate-800" role="dialog" aria-modal="true">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Change Variant</h3>
+                <p className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400">{variantPicker.item?.productTitle}</p>
+              </div>
+              <button
+                onClick={closeVariantPicker}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition dark:hover:bg-slate-700 dark:hover:text-slate-300"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="mt-4 space-y-1.5">
+              {variantPicker.variants === null ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="h-7 w-7 animate-spin rounded-full border-4 border-slate-200 border-t-[#2f0f6b] dark:border-slate-700 dark:border-t-[#a78bfa]" />
+                </div>
+              ) : variantPicker.variants.length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                  {variantPicker.error || 'No variants found for this product.'}
+                </p>
+              ) : (
+                variantPicker.variants.map((v) => {
+                  const current = v.id === variantPicker.item?.variantId;
+                  return (
+                    <button
+                      key={v.id}
+                      onClick={() => { if (!current) setConfirmVariant({ open: true, itemId: variantPicker.itemId, variant: v }); }}
+                      disabled={current}
+                      className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3.5 py-2.5 text-left text-sm transition ${
+                        current
+                          ? 'cursor-default border-[#2f0f6b] bg-[#2f0f6b]/5 dark:border-[#a78bfa] dark:bg-[#a78bfa]/10'
+                          : 'border-slate-200 hover:border-[#2f0f6b]/50 hover:bg-slate-50 dark:border-slate-700 dark:hover:border-[#a78bfa]/50 dark:hover:bg-slate-700/40'
+                      }`}
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium text-slate-900 dark:text-white">{v.name}</span>
+                        <span className="block text-xs text-slate-400 dark:text-slate-500">SKU: {v.sku || 'N/A'}</span>
+                      </span>
+                      {current ? (
+                        <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-700 dark:text-slate-400">Current</span>
+                      ) : (
+                        <span className="shrink-0 font-medium text-slate-900 dark:text-white">{v.price !== null ? `৳${v.price.toLocaleString()}` : '—'}</span>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirm Dialogs */}
       <ConfirmDialog
         open={confirmDelete.open}
@@ -1051,17 +1121,6 @@ export default function OrderDetailPage() {
       />
 
       <ConfirmDialog
-        open={confirmDeleteOrder}
-        title="Delete Order"
-        message={`Permanently delete order #${order?.orderNo} and all its items?\n\nCustomer: ${order?.details?.customerName || order?.user?.name || '—'}\nPhone: ${order?.details?.phoneNumber || '—'}\nTotal: ৳${Number(order?.total || 0).toLocaleString()}\nPlaced: ${order?.createdAt ? new Date(order.createdAt).toLocaleDateString('en-GB', { timeZone: 'Asia/Dhaka', day: 'numeric', month: 'short', year: 'numeric' }) : '—'}\n\nThis cannot be undone.`}
-        confirmLabel={deleteOrderLoading ? 'Deleting…' : 'Delete'}
-        cancelLabel="Cancel"
-        variant="danger"
-        onConfirm={handleDeleteOrder}
-        onCancel={() => { if (!deleteOrderLoading) setConfirmDeleteOrder(false); }}
-      />
-
-      <ConfirmDialog
         open={confirmUnblock}
         title="Unblock Device"
         message={`Unblock this device?\n\nDevice: ${order?.details?.deviceHash}`}
@@ -1072,6 +1131,16 @@ export default function OrderDetailPage() {
           handleUnblock();
         }}
         onCancel={() => setConfirmUnblock(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmVariant.open}
+        title="Change Variant"
+        message={`Switch to "${confirmVariant.variant?.name}"?\n\nPrice: ৳${Number(variantPicker.item?.purchasePrice || 0).toLocaleString()} → ${confirmVariant.variant?.price != null ? `৳${confirmVariant.variant.price.toLocaleString()}` : '—'}\n\nThe item's SKU, image and the order total will be updated.`}
+        confirmLabel="Switch"
+        cancelLabel="Cancel"
+        onConfirm={handleVariantChange}
+        onCancel={() => setConfirmVariant({ open: false, variant: null })}
       />
     </div>
   );

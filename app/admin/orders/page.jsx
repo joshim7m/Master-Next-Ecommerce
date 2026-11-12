@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { getOrdersPage, getCustomerOrderStats, updateOrderStatus, deleteOrder } from '../../../src/actions/orders';
 import InvoicePreviewModal from '../../../src/components/admin/InvoicePreviewModal';
+import CreateOrderModal from '../../../src/components/admin/CreateOrderModal';
 import ConfirmDialog from '../../../src/components/ConfirmDialog';
 
 const orderStatuses = [
@@ -264,6 +265,7 @@ function OrdersList() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [statsOrder, setStatsOrder] = useState(null);
@@ -474,19 +476,31 @@ function OrdersList() {
 
   return (
     <section className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Orders</h1>
-        <p className="mt-0.5 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-          <span>
-            {total} {total === 1 ? 'order' : 'orders'} · {rangeLabel}
-          </span>
-          {refreshing && (
-            <span
-              aria-label="Refreshing"
-              className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#2f0f6b] dark:border-slate-700 dark:border-t-[#a78bfa]"
-            />
-          )}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Orders</h1>
+          <p className="mt-0.5 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+            <span>
+              {total} {total === 1 ? 'order' : 'orders'} · {rangeLabel}
+            </span>
+            {refreshing && (
+              <span
+                aria-label="Refreshing"
+                className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-200 border-t-[#2f0f6b] dark:border-slate-700 dark:border-t-[#a78bfa]"
+              />
+            )}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[#2f0f6b] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#2f0f6b]/90 dark:bg-[#a78bfa] dark:text-slate-900 dark:hover:bg-[#a78bfa]/90"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Create Order
+        </button>
       </div>
 
       {/* ── Filters ── */}
@@ -678,6 +692,8 @@ function OrdersList() {
           onClose={() => setStatsOrder(null)}
         />
       )}
+
+      {createOpen && <CreateOrderModal onClose={() => setCreateOpen(false)} />}
 
       {invoiceOrder && (
         <InvoicePreviewModal

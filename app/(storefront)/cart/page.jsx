@@ -4,12 +4,16 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { loadCart, updateCartItem, removeCartItem } from '../../../src/lib/cartStorage';
 import { pushEcommerce } from '../../../src/lib/gtm';
+import { isFreeDeliveryEligible, countDistinctProducts } from '../../../src/lib/freeDelivery';
 import FrequentlyBoughtTogether from '../../../src/components/storefront/FrequentlyBoughtTogether';
 
 export default function CartPage() {
   const [cart, setCart] = useState([]);
   const [hydrated, setHydrated] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  // Free-delivery promo (Settings → Site Config) — drives the strip below.
+  // The checkout and the order API re-verify eligibility; this is display-only.
+  const [freeDelivery, setFreeDelivery] = useState({ enabled: false, minProducts: 2 });
   const viewedRef = useRef(false);
 
   useEffect(() => {
@@ -30,9 +34,31 @@ export default function CartPage() {
     }
   }, [hydrated]);
 
+  // Pull the promo config so the strip can show the real threshold.
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/delivery-areas')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!alive || !data?.freeDelivery) return;
+        setFreeDelivery({
+          enabled: Boolean(data.freeDelivery.enabled),
+          minProducts: Number(data.freeDelivery.minProducts) >= 1 ? Number(data.freeDelivery.minProducts) : 2,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
   }, [cart, refresh]);
+
+  const distinctProducts = useMemo(() => countDistinctProducts(cart), [cart, refresh]);
+  const freeDeliveryEligible = isFreeDeliveryEligible(cart, freeDelivery);
+  const productsAwayFromFree = Math.max(0, freeDelivery.minProducts - distinctProducts);
 
   const handleQuantity = (index, delta) => {
     const item = cart[index];
@@ -117,6 +143,19 @@ export default function CartPage() {
                 <p className="text-base font-semibold text-on-surface dark:text-dark-text">Subtotal</p>
                 <p className="text-lg font-semibold text-primary dark:text-primary">৳ {subtotal.toLocaleString()}</p>
               </div>
+              {/* Free-delivery promo strip: celebrate when the cart qualifies,
+                  otherwise show how many more products unlock it. */}
+              {freeDelivery.enabled && (
+                freeDeliveryEligible ? (
+                  <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    🎉 অভিনন্দন! এই অর্ডারে ডেলিভারি ফ্রি।
+                  </p>
+                ) : (
+                  <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                    🚚 আরও {productsAwayFromFree} টি পণ্য যোগ করলেই ডেলিভারি ফ্রি!
+                  </p>
+                )
+              )}
             </div>
 
             <Link

@@ -93,6 +93,8 @@ export default function NotificationSettingsPage() {
     siteUrl: '',
     jwtSecret: '',
     deliveryAreas: DEFAULT_DELIVERY_AREAS.map((a) => ({ ...a })),
+    freeDeliveryEnabled: false,
+    freeDeliveryMinProducts: 2,
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
@@ -137,6 +139,12 @@ export default function NotificationSettingsPage() {
     whatsappNumber: (v) => {
       if (!v.trim()) return '';
       if (!/^(?:\+?88)?01[3-9]\d{8}$/.test(v.trim())) return 'Enter a valid Bangladeshi mobile number, e.g. 01945090085 or +8801945090085.';
+      return '';
+    },
+    freeDeliveryMinProducts: (v) => {
+      const n = Number(v);
+      if (v === '' || !Number.isInteger(n) || n < 1) return 'Enter a whole number of at least 1.';
+      if (n > 99) return 'Keep it at 99 or below.';
       return '';
     },
   };
@@ -202,6 +210,9 @@ export default function NotificationSettingsPage() {
             Array.isArray(data.deliveryAreas) && data.deliveryAreas.length
               ? data.deliveryAreas.map((a) => ({ name: String(a.name), charge: Number(a.charge) }))
               : DEFAULT_DELIVERY_AREAS.map((a) => ({ ...a })),
+          freeDeliveryEnabled: Boolean(data.freeDeliveryEnabled),
+          freeDeliveryMinProducts:
+            Number(data.freeDeliveryMinProducts) >= 1 ? Number(data.freeDeliveryMinProducts) : 2,
         });
       })
       .catch(() => {})
@@ -437,6 +448,50 @@ export default function NotificationSettingsPage() {
             </svg>
             Add Area
           </button>
+        </SectionCard>
+
+        <SectionCard
+          title="Free Delivery"
+          description="Automatically make delivery free when the order contains enough different products."
+        >
+          {/* Toggle switch for the promo, matching the admin switch styling. */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-slate-900 dark:text-white">Enable free delivery promo</p>
+              <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+                When on, an order with {Number(form.freeDeliveryMinProducts) || 2}+ different products pays ৳0 delivery in every area.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.freeDeliveryEnabled}
+              onClick={() => setForm((prev) => ({ ...prev, freeDeliveryEnabled: !prev.freeDeliveryEnabled }))}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#2f0f6b]/30 dark:focus:ring-[#a78bfa]/40 ${
+                form.freeDeliveryEnabled ? 'bg-[#2f0f6b] dark:bg-[#a78bfa]' : 'bg-slate-200 dark:bg-slate-600'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform duration-200 ${
+                  form.freeDeliveryEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          {form.freeDeliveryEnabled && (
+            <InputField
+              label="Minimum different products"
+              type="number"
+              min="1"
+              max="99"
+              step="1"
+              value={form.freeDeliveryMinProducts}
+              onChange={(e) => updateField('freeDeliveryMinProducts', e.target.value)}
+              onBlur={() => blurField('freeDeliveryMinProducts')}
+              error={errors.freeDeliveryMinProducts}
+              hint="Different products count, not quantity — 2× the same product counts as 1. Variants of one product also count as 1."
+            />
+          )}
         </SectionCard>
 
         <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { loadCart, clearCart } from '../../../src/lib/cartStorage';
 import { pushEcommerce, buildEcommerce } from '../../../src/lib/gtm';
 import { DEFAULT_DELIVERY_AREAS, chargeForArea } from '../../../src/lib/deliveryAreas';
+import { isFreeDeliveryEligible, countDistinctProducts } from '../../../src/lib/freeDelivery';
 import useDeviceFingerprint from '../../../src/hooks/useDeviceFingerprint';
 import FrequentlyBoughtTogether from '../../../src/components/storefront/FrequentlyBoughtTogether';
 
@@ -65,6 +66,9 @@ export default function CheckoutPage() {
   // Zones come from Settings → Site Config. Defaults match the previous hardcoded
   // ৳80/৳120, so the first paint is unchanged while the configured list loads.
   const [deliveryAreas, setDeliveryAreas] = useState(DEFAULT_DELIVERY_AREAS);
+  // Free-delivery promo (also admin-configured). The server re-verifies on
+  // submit; these values only drive the UI (Free badge, nudge, totals preview).
+  const [freeDelivery, setFreeDelivery] = useState({ enabled: false, minProducts: 2 });
 
   useEffect(() => {
     setCart(loadCart());
@@ -99,6 +103,12 @@ export default function CheckoutPage() {
       .then((data) => {
         if (!alive || !Array.isArray(data?.areas) || data.areas.length === 0) return;
         setDeliveryAreas(data.areas);
+        if (data.freeDelivery) {
+          setFreeDelivery({
+            enabled: Boolean(data.freeDelivery.enabled),
+            minProducts: Number(data.freeDelivery.minProducts) >= 1 ? Number(data.freeDelivery.minProducts) : 2,
+          });
+        }
         setForm((prev) =>
           data.areas.some((area) => area.name === prev.shippingArea)
             ? prev
@@ -115,7 +125,9 @@ export default function CheckoutPage() {
     // StrictMode double-invokes the mount effect in dev; fire once per visit.
     if (hydrated && cart.length > 0 && !beginCheckoutRef.current) {
       beginCheckoutRef.current = true;
-      const delivery = chargeForArea(deliveryAreas, form.shippingArea);
+      const delivery = isFreeDeliveryEligible(cart, freeDelivery)
+        ? 0
+        : chargeForArea(deliveryAreas, form.shippingArea);
       const sub = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
       pushEcommerce('begin_checkout', {
         items: cart,
@@ -125,7 +137,7 @@ export default function CheckoutPage() {
     }
   }, [hydrated]);
 
-  const [form, setForm] = useState({ name: '', mobile: '', address: '', shippingArea: DEFAULT_DELIVERY_AREAS[0].name });
+  const [form, setForm] = useState({ name: '', mobile: '', address: '', orderNote: '', shippingArea: DEFAULT_DELIVERY_AREAS[0].name });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -161,6 +173,7 @@ export default function CheckoutPage() {
       name: form.name.trim(),
       mobile,
       address: form.address.trim(),
+      orderNote: form.orderNote.trim(),
       shippingArea: form.shippingArea,
       items: cart,
       deviceHash,
@@ -198,7 +211,11 @@ export default function CheckoutPage() {
     return () => clearTimeout(timer);
   }, [form, cart, hydrated, submitting, deviceHash]);
 
-  const deliveryCharge = chargeForArea(deliveryAreas, form.shippingArea);
+  const baseDeliveryCharge = chargeForArea(deliveryAreas, form.shippingArea);
+  const distinctProducts = countDistinctProducts(cart);
+  const freeDeliveryEligible = isFreeDeliveryEligible(cart, freeDelivery);
+  const deliveryCharge = freeDeliveryEligible ? 0 : baseDeliveryCharge;
+  const productsAwayFromFree = Math.max(0, freeDelivery.minProducts - distinctProducts);
   const subtotal = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
   const total = subtotal + deliveryCharge;
 
@@ -234,7 +251,9 @@ export default function CheckoutPage() {
       return;
     }
 
-    const delivery = chargeForArea(deliveryAreas, form.shippingArea);
+    const delivery = isFreeDeliveryEligible(cart, freeDelivery)
+      ? 0
+      : chargeForArea(deliveryAreas, form.shippingArea);
     const sub = cart.reduce((sum, item) => sum + Number(item.price ?? 0) * item.quantity, 0);
 
     /* COD-only store: passing validation and confirming the order is when the
@@ -331,8 +350,19 @@ export default function CheckoutPage() {
               <textarea id="address" name="address" value={form.address} onChange={handleChange} rows="3" className={`mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted ${errors.address ? 'border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg'}`} placeholder="Flat No, Road No, Area, Thana" />
               {errors.address ? <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">{errors.address}</p> : null}
             </div>
+            <div>
+              <label htmlFor="orderNote" className="block text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Order Note</label>
+              <textarea id="orderNote" name="orderNote" value={form.orderNote} onChange={handleChange} rows="2" maxLength="200" className="mt-1.5 w-full rounded-xl border p-3 text-sm dark:text-dark-text dark:placeholder:text-dark-muted border-border bg-warm-sand dark:border-dark-border dark:bg-dark-bg" placeholder="Any special instructions (optional)" />
+            </div>
             <div className="rounded-xl border border-border bg-warm-sand p-4 dark:border-dark-border dark:bg-dark-bg">
               <p className="text-sm font-medium text-on-surface/70 dark:text-dark-text/70">Delivery Area</p>
+              {/* Free-delivery offer banner: always visible while the promo is on,
+                  so customers know the deal even before their cart qualifies. */}
+              {freeDelivery.enabled && (
+                <p className="mt-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  🎉 {freeDelivery.minProducts}+ ভিন্ন পণ্য অর্ডার করলেই <span className="font-bold">ডেলিভারি ফ্রি!</span>
+                </p>
+              )}
               {/* Two areas per row: grid instead of a flex row, so a longer
                   configured area list wraps into columns instead of squeezing
                   every card onto one line. */}
@@ -383,13 +413,17 @@ export default function CheckoutPage() {
                       }`}>
                         {area.name}
                       </span>
-                      {/* Price Badge */}
+                      {/* Price Badge — FREE when the promo covers this cart */}
                       <span className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] ${
                         checked
                           ? 'bg-primary/10 text-primary scale-100'
                           : 'bg-on-surface/5 text-muted dark:bg-dark-surface dark:text-dark-muted scale-95 group-hover:scale-100'
                       }`}>
-                        {area.charge}৳
+                        {freeDeliveryEligible ? (
+                          <span className="font-bold text-green-600 dark:text-green-400">FREE</span>
+                        ) : (
+                          `${area.charge}৳`
+                        )}
                       </span>
                     </label>
                   );
@@ -457,8 +491,25 @@ export default function CheckoutPage() {
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted dark:text-dark-muted">Delivery</span>
-              <span className="font-medium text-on-surface dark:text-dark-text">৳ {deliveryCharge}</span>
+              {deliveryCharge > 0 ? (
+                <span className="font-medium text-on-surface dark:text-dark-text">৳ {deliveryCharge}</span>
+              ) : (
+                <span className="font-bold text-green-600 dark:text-green-400">Free</span>
+              )}
             </div>
+            {/* Free-delivery promo strip: celebrate when the cart qualifies,
+                otherwise show how many more products unlock it. */}
+            {freeDelivery.enabled && (
+              freeDeliveryEligible ? (
+                <p className="rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  🎉 অভিনন্দন! আপনি ফ্রি ডেলিভারি পাচ্ছেন।
+                </p>
+              ) : (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                  🚚 আরও {productsAwayFromFree} টি পণ্য যোগ করলেই ডেলিভারি ফ্রি!
+                </p>
+              )
+            )}
             <hr className="border-border dark:border-dark-border" />
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold text-on-surface dark:text-dark-text">Total</span>

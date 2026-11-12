@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '../../../../../src/lib/prisma';
 import { parseDeliveryAreas } from '../../../../../src/lib/deliveryAreas';
+import { parseFreeDeliverySettings } from '../../../../../src/lib/freeDelivery';
 
 async function getSettings() {
   let settings = await prisma.siteSetting.findUnique({ where: { id: 'singleton' } });
@@ -19,6 +20,7 @@ function serializeSettings(settings) {
     siteUrl: settings.siteUrl || '',
     jwtSecret: settings.jwtSecret || '',
     deliveryAreas: parseDeliveryAreas(settings.deliveryAreas),
+    ...parseFreeDeliverySettings(settings),
   };
 }
 
@@ -35,12 +37,25 @@ export async function GET() {
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const { telegramBotToken, telegramChatId, gtmId, whatsappNumber, siteUrl, jwtSecret, deliveryAreas } = body;
+    const { telegramBotToken, telegramChatId, gtmId, whatsappNumber, siteUrl, jwtSecret, deliveryAreas, freeDeliveryEnabled, freeDeliveryMinProducts } = body;
 
     // Only touch the column when the client actually sent it, so a partial PUT
     // can never wipe the configured zones back to the defaults.
     const deliveryAreasValue =
       deliveryAreas === undefined ? undefined : JSON.stringify(parseDeliveryAreas(deliveryAreas));
+
+    // Same partial-PUT rule for the free-delivery promo. minProducts is clamped
+    // to a sane integer so a stray value can't disable pricing entirely.
+    const freeDeliveryPatch = {};
+    if (freeDeliveryEnabled !== undefined) {
+      freeDeliveryPatch.freeDeliveryEnabled = Boolean(freeDeliveryEnabled);
+    }
+    if (freeDeliveryMinProducts !== undefined) {
+      const minProducts = Number(freeDeliveryMinProducts);
+      if (Number.isFinite(minProducts) && minProducts >= 1) {
+        freeDeliveryPatch.freeDeliveryMinProducts = Math.min(99, Math.floor(minProducts));
+      }
+    }
 
     const settings = await prisma.siteSetting.upsert({
       where: { id: 'singleton' },
@@ -52,6 +67,7 @@ export async function PUT(request) {
         siteUrl: siteUrl || null,
         jwtSecret: jwtSecret || null,
         ...(deliveryAreasValue !== undefined && { deliveryAreas: deliveryAreasValue }),
+        ...freeDeliveryPatch,
       },
       create: {
         id: 'singleton',
@@ -62,6 +78,8 @@ export async function PUT(request) {
         siteUrl: siteUrl || null,
         jwtSecret: jwtSecret || null,
         deliveryAreas: deliveryAreasValue ?? null,
+        freeDeliveryEnabled: Boolean(freeDeliveryEnabled),
+        freeDeliveryMinProducts: Number(freeDeliveryMinProducts) >= 1 ? Math.min(99, Math.floor(Number(freeDeliveryMinProducts))) : 2,
       },
     });
 

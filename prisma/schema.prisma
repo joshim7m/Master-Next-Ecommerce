@@ -279,6 +279,10 @@ model SiteSetting {
   jwtSecret        String?
   /// JSON array of delivery zones: `[{ "name": "Inside Dhaka", "charge": 80 }, ...]`.
   deliveryAreas    String?
+  /// Free-delivery promo: orders with at least `freeDeliveryMinProducts`
+  /// distinct products pay ৳0 delivery regardless of the zone charge.
+  freeDeliveryEnabled     Boolean @default(false)
+  freeDeliveryMinProducts Int     @default(2)
   metaTitle        String?
   metaDescription  String?
   metaKeywords     String?
