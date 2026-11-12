@@ -20,7 +20,10 @@ function serializeSettings(settings) {
     siteUrl: settings.siteUrl || '',
     jwtSecret: settings.jwtSecret || '',
     deliveryAreas: parseDeliveryAreas(settings.deliveryAreas),
-    ...parseFreeDeliverySettings(settings),
+    // Admin field names (the page/modal read these); the promo-shaped
+    // { enabled, minProducts } form is only for the public delivery-areas API.
+    freeDeliveryEnabled: Boolean(settings.freeDeliveryEnabled),
+    freeDeliveryMinProducts: parseFreeDeliverySettings(settings).minProducts,
   };
 }
 
